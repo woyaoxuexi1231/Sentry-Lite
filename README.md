@@ -20,6 +20,23 @@ cmake --build build --config Release
 
 产物：`build/Release/Sentry-Lite.exe`
 
+## 发布（GitHub Actions 自动）
+
+**不需要本地手动上传 exe。** 推送版本标签后，GitHub Actions 会自动编译并创建 Release、附上可下载的安装包。
+
+```powershell
+# 1. 更新 VERSION / app.manifest 版本号并提交
+# 2. 打标签并推送
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+- 工作流：`.github/workflows/release.yml`（触发条件：`v*.*.*` 标签）
+- 产物命名：`Sentry-Lite-<版本>-x64.exe`（例如 `Sentry-Lite-1.0.0-x64.exe`）
+- Release 说明：优先读取仓库里的 `RELEASE_v<版本>.md`
+
+若标签已推送但当时还没有工作流，可在 GitHub **Actions → Release → Run workflow**，输入已有标签（如 `v1.0.0`）重新触发。
+
 ## 数据目录
 
 - 默认：`%APPDATA%\Sentry-Lite\`

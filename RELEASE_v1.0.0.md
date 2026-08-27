@@ -14,7 +14,7 @@
 
 ### 下载
 
-- **Windows x64**：`Sentry-Lite-1.0.0-x64.exe`（单文件绿色版，无需安装）
+由 GitHub Actions 自动构建并附在本 Release 的 **Assets** 中（`Sentry-Lite-1.0.0-x64.exe`，单文件绿色版，无需安装）。
 
 ### 数据目录
 
