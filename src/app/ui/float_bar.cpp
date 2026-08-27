@@ -1,4 +1,6 @@
 #include "float_bar.h"
+#include "ui/history_view.h"
+#include "core/service_install.h"
 #include <windowsx.h>
 #include <shellapi.h>
 #include <ctime>
@@ -13,7 +15,10 @@ constexpr wchar_t kClassName[] = L"SentryLite_bar";
 constexpr UINT kTickTimer = 1;
 constexpr int kIdTopmost = 2001;
 constexpr int kIdClickThrough = 2002;
-constexpr int kIdOpenHistory = 2003;
+constexpr int kIdHistoryView = 2003;
+constexpr int kIdOpenHistory = 2004;
+constexpr int kIdInstallTempSvc = 2005;
+constexpr int kIdUninstallTempSvc = 2006;
 constexpr int kIdExit = 2099;
 
 AppContext* g_ctx = nullptr;
@@ -133,8 +138,15 @@ void ShowContextMenu(HWND hwnd) {
     AppendMenuW(menu, MF_STRING | (g_ctx->config.click_through ? MF_CHECKED : 0),
                 kIdClickThrough, L"鼠标穿透");
     AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
-    if (g_ctx->config.history.enabled)
+    if (g_ctx->config.history.enabled) {
+        AppendMenuW(menu, MF_STRING, kIdHistoryView, L"历史记录…");
         AppendMenuW(menu, MF_STRING, kIdOpenHistory, L"打开历史数据文件夹");
+    }
+    AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
+    if (IsTempServiceInstalled())
+        AppendMenuW(menu, MF_STRING, kIdUninstallTempSvc, L"卸载温度服务");
+    else
+        AppendMenuW(menu, MF_STRING, kIdInstallTempSvc, L"启用温度监控…");
     AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
     AppendMenuW(menu, MF_STRING, kIdExit, L"退出");
 
@@ -160,6 +172,29 @@ void ShowContextMenu(HWND hwnd) {
     case kIdOpenHistory:
         OpenHistoryFolder();
         break;
+    case kIdHistoryView:
+        ShowHistoryViewer(hwnd, g_ctx->config, g_ctx->recorder);
+        break;
+    case kIdInstallTempSvc: {
+        std::wstring err;
+        if (InstallTempService(err))
+            MessageBoxW(hwnd,
+                L"温度服务已安装并尝试启动。\n\n"
+                L"请确保已安装 PawnIO（https://pawnio.eu）及对应模块 blob。\n"
+                L"若无 PawnIO，GPU 温度（NVIDIA）仍可能可用。",
+                kAppTitle, MB_OK | MB_ICONINFORMATION);
+        else
+            MessageBoxW(hwnd, err.c_str(), kAppTitle, MB_OK | MB_ICONWARNING);
+        break;
+    }
+    case kIdUninstallTempSvc: {
+        std::wstring err;
+        if (UninstallTempService(err))
+            MessageBoxW(hwnd, L"温度服务已卸载。", kAppTitle, MB_OK | MB_ICONINFORMATION);
+        else
+            MessageBoxW(hwnd, err.c_str(), kAppTitle, MB_OK | MB_ICONWARNING);
+        break;
+    }
     case kIdExit:
         DestroyWindow(hwnd);
         break;

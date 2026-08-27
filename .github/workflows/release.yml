@@ -38,18 +38,24 @@ jobs:
           "tag=$tag" >> $env:GITHUB_OUTPUT
           "version=$($tag.Substring(1))" >> $env:GITHUB_OUTPUT
 
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
       - name: Configure
-        run: cmake -B build -G "Visual Studio 17 2022" -A x64
+        run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 
       - name: Build
-        run: cmake --build build --config Release --parallel
+        run: cmake --build build --parallel
 
       - name: Package
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path dist | Out-Null
-          $name = "Sentry-Lite-${{ steps.ver.outputs.version }}-x64.exe"
-          Copy-Item "build/Release/Sentry-Lite.exe" "dist/$name"
+          $ver = "${{ steps.ver.outputs.version }}"
+          Copy-Item "build/Sentry-Lite.exe" "dist/Sentry-Lite-$ver-x64.exe"
+          Copy-Item "build/Sentry-Lite-svc.exe" "dist/Sentry-Lite-svc-$ver-x64.exe"
 
       - name: Resolve release notes
         id: notes
