@@ -1,13 +1,57 @@
+# Build outputs
 build/
 dist/
+out/
+cmake-build-*/
+CMakeCache.txt
+CMakeFiles/
+CMakeScripts/
+Testing/
+compile_commands.json
+CMakeUserPresets.json
+install_manifest.txt
+
+# Visual Studio / IDE
 .vs/
 .idea/
+.vscode/
 *.user
+*.suo
+*.VC.db
+*.VC.opendb
+*.sln.docstates
+
+# Compiler / linker artifacts (anywhere)
 *.obj
+*.o
 *.pdb
 *.ilk
 *.exp
-*.lib
+*.map
+*.iobj
+*.ipdb
 *.exe
-!resources/
+*.dll
+*.lib
 !third_party/webview2/lib/x64/WebView2LoaderStatic.lib
+
+# WebView2 user-data folder created next to the exe
+*.exe.WebView2/
+
+# Node tooling under scripts/ (puppeteer measure helpers, etc.)
+node_modules/
+package-lock.json
+scripts/package.json
+scripts/measure-layout.mjs
+
+# Unused / local-only web assets (dashboard loads Inter from Google Fonts)
+src/app/web/fonts/
+
+# OS / temp
+Thumbs.db
+Desktop.ini
+.DS_Store
+*.log
+*.tmp
+*.temp
+~$*

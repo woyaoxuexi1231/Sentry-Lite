@@ -66,6 +66,18 @@ ComPtr<ICoreWebView2>            g_web;
 std::wstring Num1(float v) { wchar_t b[24]; swprintf_s(b, L"%.1f", v); return b; }
 std::wstring Num0(float v) { wchar_t b[24]; swprintf_s(b, L"%.0f", v); return b; }
 
+HICON LoadAppIconSize(HINSTANCE inst, int cx, int cy) {
+    // LoadImage picks the best match from the multi-size .ico (no comctl32 v6 import)
+    return (HICON)LoadImageW(inst, MAKEINTRESOURCE(1), IMAGE_ICON, cx, cy, LR_DEFAULTCOLOR);
+}
+
+void IconSizesForDpi(UINT dpi, int* cx_big, int* cy_big, int* cx_sm, int* cy_sm) {
+    *cx_big = GetSystemMetricsForDpi(SM_CXICON, dpi);
+    *cy_big = GetSystemMetricsForDpi(SM_CYICON, dpi);
+    *cx_sm = GetSystemMetricsForDpi(SM_CXSMICON, dpi);
+    *cy_sm = GetSystemMetricsForDpi(SM_CYSMICON, dpi);
+}
+
 // mockup 时段健康分：100 − 占用超出扣分 − 温度扣分
 int BucketScore(float cpuA, float gpuA, float ramA, float cpuTA, float gpuTA) {
     float score = 100.f;
@@ -173,11 +185,17 @@ void Dashboard::InitTemperature() {
 }
 
 bool Dashboard::CreateWindow_() {
+    HINSTANCE inst = GetModuleHandleW(nullptr);
+    UINT dpi = GetDpiForSystem();
+    int cx_big = 0, cy_big = 0, cx_sm = 0, cy_sm = 0;
+    IconSizesForDpi(dpi, &cx_big, &cy_big, &cx_sm, &cy_sm);
+
     WNDCLASSEXW wc{sizeof(wc)};
     wc.lpfnWndProc = &Dashboard::WndProc;
-    wc.hInstance = GetModuleHandleW(nullptr);
+    wc.hInstance = inst;
     wc.lpszClassName = kClassName;
-    wc.hIcon = LoadIconW(wc.hInstance, MAKEINTRESOURCE(1));
+    wc.hIcon = LoadAppIconSize(inst, cx_big, cy_big);
+    wc.hIconSm = LoadAppIconSize(inst, cx_sm, cy_sm);
     wc.hCursor = LoadCursorW(nullptr, IDC_ARROW);
     wc.hbrBackground = (HBRUSH)GetStockObject(WHITE_BRUSH);
     if (!RegisterClassExW(&wc)) return false;
@@ -190,17 +208,27 @@ bool Dashboard::CreateWindow_() {
 
     hwnd_ = CreateWindowExW(0, kClassName, kAppTitle, WS_OVERLAPPEDWINDOW,
                             x, y, w, h, nullptr, nullptr, wc.hInstance, this);
-    return hwnd_ != nullptr;
+    if (!hwnd_) return false;
+    if (wc.hIcon) SendMessageW(hwnd_, WM_SETICON, ICON_BIG, (LPARAM)wc.hIcon);
+    if (wc.hIconSm) SendMessageW(hwnd_, WM_SETICON, ICON_SMALL, (LPARAM)wc.hIconSm);
+    return true;
 }
 
 bool Dashboard::AddTrayIcon() {
+    HINSTANCE inst = GetModuleHandleW(nullptr);
+    UINT dpi = hwnd_ ? GetDpiForWindow(hwnd_) : GetDpiForSystem();
+    int cx_big = 0, cy_big = 0, cx_sm = 0, cy_sm = 0;
+    IconSizesForDpi(dpi, &cx_big, &cy_big, &cx_sm, &cy_sm);
+
     NOTIFYICONDATAW nid{};
     nid.cbSize = sizeof(nid);
     nid.hWnd = hwnd_;
     nid.uID = kTrayId;
     nid.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
     nid.uCallbackMessage = kMsgTray;
-    nid.hIcon = LoadIconW(GetModuleHandleW(nullptr), MAKEINTRESOURCE(1));
+    nid.hIcon = LoadAppIconSize(inst, cx_sm, cy_sm);
+    if (!nid.hIcon)
+        nid.hIcon = LoadIconW(inst, MAKEINTRESOURCE(1));
     lstrcpynW(nid.szTip, kAppTitle, 64);
     tray_added_ = !!Shell_NotifyIconW(NIM_ADD, &nid);
     return tray_added_;
