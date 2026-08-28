@@ -49,6 +49,15 @@ uint32_t NextDay(uint32_t day) {
                                  (utc.tm_mon + 1) * 100u + utc.tm_mday);
 }
 
+bool ReadSampleAt(HANDLE h, size_t index, RawSample& out) {
+    LARGE_INTEGER pos{};
+    pos.QuadPart = static_cast<LONGLONG>(sizeof(FileHeader) + index * sizeof(RawSample));
+    if (!SetFilePointerEx(h, pos, nullptr, FILE_BEGIN)) return false;
+    DWORD read = 0;
+    return ReadFile(h, &out, sizeof(out), &read, nullptr) && read == sizeof(out);
+}
+
+// Binary-search then sequential append — never load a full day into RAM.
 bool ReadFileRange(const std::wstring& path, uint64_t start_ts, uint64_t end_ts,
                    std::vector<RawSample>& out) {
     HANDLE h = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE,
@@ -63,8 +72,8 @@ bool ReadFileRange(const std::wstring& path, uint64_t start_ts, uint64_t end_ts,
 
     FileHeader hdr{};
     DWORD read = 0;
-    ReadFile(h, &hdr, sizeof(hdr), &read, nullptr);
-    if (hdr.magic != kHwdbMagic || hdr.record_size != sizeof(RawSample)) {
+    if (!ReadFile(h, &hdr, sizeof(hdr), &read, nullptr) ||
+        hdr.magic != kHwdbMagic || hdr.record_size != sizeof(RawSample)) {
         CloseHandle(h);
         return false;
     }
@@ -74,17 +83,43 @@ bool ReadFileRange(const std::wstring& path, uint64_t start_ts, uint64_t end_ts,
         CloseHandle(h);
         return false;
     }
-    size_t n = static_cast<size_t>(payload / sizeof(RawSample));
-    std::vector<RawSample> all(n);
-    ReadFile(h, all.data(), static_cast<DWORD>(payload), &read, nullptr);
+    const size_t n = static_cast<size_t>(payload / sizeof(RawSample));
+    if (n == 0) { CloseHandle(h); return true; }
+
+    RawSample probe{};
+    size_t lo = 0, hi = n;
+    while (lo < hi) {
+        size_t mid = lo + (hi - lo) / 2;
+        if (!ReadSampleAt(h, mid, probe)) { CloseHandle(h); return false; }
+        if (probe.ts_unix < start_ts) lo = mid + 1;
+        else hi = mid;
+    }
+
+    // Stream matching records in chunks.
+    constexpr size_t kChunk = 512;
+    RawSample chunk[kChunk];
+    size_t idx = lo;
+    while (idx < n) {
+        LARGE_INTEGER pos{};
+        pos.QuadPart = static_cast<LONGLONG>(sizeof(FileHeader) + idx * sizeof(RawSample));
+        if (!SetFilePointerEx(h, pos, nullptr, FILE_BEGIN)) break;
+
+        const size_t want = (std::min)(kChunk, n - idx);
+        DWORD bytes = 0;
+        if (!ReadFile(h, chunk, static_cast<DWORD>(want * sizeof(RawSample)), &bytes, nullptr))
+            break;
+        const size_t got = bytes / sizeof(RawSample);
+        if (got == 0) break;
+
+        for (size_t i = 0; i < got; ++i) {
+            if (chunk[i].ts_unix > end_ts) { CloseHandle(h); return true; }
+            if (chunk[i].ts_unix >= start_ts) out.push_back(chunk[i]);
+        }
+        idx += got;
+        if (got < want) break;
+    }
+
     CloseHandle(h);
-
-    if (all.empty()) return true;
-
-    auto it = std::lower_bound(all.begin(), all.end(), start_ts,
-                               [](const RawSample& s, uint64_t t) { return s.ts_unix < t; });
-    for (; it != all.end() && it->ts_unix <= end_ts; ++it)
-        out.push_back(*it);
     return true;
 }
 
@@ -94,6 +129,11 @@ bool QueryRawRange(const std::wstring& dir, uint64_t start_ts, uint64_t end_ts,
                    std::vector<RawSample>& out) {
     out.clear();
     if (end_ts < start_ts) return false;
+
+    // Rough reserve: ~1 sample/sec for short windows; cap to avoid huge prealloc.
+    const uint64_t span = end_ts - start_ts + 1;
+    if (span <= 86400) out.reserve(static_cast<size_t>(span));
+    else out.reserve(86400);
 
     uint32_t day = DayOf(start_ts);
     uint32_t end_day = DayOf(end_ts);

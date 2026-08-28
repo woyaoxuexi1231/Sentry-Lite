@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(Sentry-Lite VERSION 1.2.0 LANGUAGES CXX RC)
+project(Sentry-Lite VERSION 1.3.0 LANGUAGES CXX RC)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -48,10 +48,9 @@ set_property(TARGET Sentry-Lite PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded")
 
 target_link_libraries(Sentry-Lite PRIVATE
     "${CMAKE_SOURCE_DIR}/third_party/webview2/lib/x64/WebView2LoaderStatic.lib"
-    d2d1.lib dwrite.lib dxgi.lib
-    pdh.lib iphlpapi.lib wbemuuid.lib
-    dwmapi.lib shcore.lib gdi32.lib user32.lib shell32.lib
-    ole32.lib oleaut32.lib advapi32.lib comdlg32.lib shlwapi.lib
+    pdh.lib iphlpapi.lib
+    shcore.lib gdi32.lib user32.lib shell32.lib
+    ole32.lib oleaut32.lib advapi32.lib shlwapi.lib
 )
 
 target_sources(Sentry-Lite PRIVATE app.manifest)

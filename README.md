@@ -2,7 +2,7 @@
 
 轻量 Windows 硬件监控仪表盘（WebView2 内嵌 UI）：CPU / GPU / 内存 / 网速 / 温度，1 秒采样并本地落盘。
 
-**当前版本：1.2.0**
+**当前版本：1.3.0**
 
 ## 功能
 
@@ -33,17 +33,16 @@ cmake --build build --config Release
 
 ## 发布（GitHub Actions 自动）
 
-推送版本标签后，Actions 自动编译并发布 **zip（完整便携包）** + **exe（主程序）**：
+推送版本标签后，Actions 自动编译并发布 **zip（完整便携包）**：
 
 ```powershell
-git tag v1.2.0
-git push origin v1.2.0
+git tag v1.3.0
+git push origin v1.3.0
 ```
 
 Release 资产：
 
-- `Sentry-Lite-<ver>-x64.zip` — **推荐**，解压即用
-- `Sentry-Lite-<ver>-x64.exe` — 仅主程序（完整功能请用 zip）
+- `Sentry-Lite-<ver>-x64.zip` — 解压即用
 
 ## 温度监控
 
@@ -58,6 +57,7 @@ Release 资产：
 
 - 历史记录：`%APPDATA%\Sentry-Lite\history\`
 - 配置：`%APPDATA%\Sentry-Lite\config.json`
+- WebView2 缓存：`%LOCALAPPDATA%\Sentry-Lite\WebView2\`
 - 便携模式：exe 同目录放置 `portable.marker`
 
 ## 许可证

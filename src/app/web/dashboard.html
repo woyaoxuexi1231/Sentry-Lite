@@ -3,17 +3,20 @@
 <head>
 <meta charset="UTF-8">
 <title>Sentry-Lite · Dashboard</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
+  @font-face {
+    font-family: "Inter";
+    src: url("fonts/InterVariable.woff2") format("woff2");
+    font-weight: 100 900;
+    font-display: swap;
+  }
   :root {
     --bg: #ffffff; --surface: #ffffff; --surface2: #f6f7f9; --border: #e4e7ee;
     --text: #171717; --muted: #737373;
     --ok: #10b981; --warn: #fbbf24; --crit: #f87171;
     --empty: #d1d5db;
     --ok-bg: rgba(16,185,129,.14); --warn-bg: rgba(251,191,36,.18); --crit-bg: rgba(248,113,113,.16);
-    --font: "Inter", sans-serif;
+    --font: "Inter", "Segoe UI", sans-serif;
     --r-xl: 28px; --r-lg: 20px; --r-md: 14px;
     --shadow: 0 16px 48px rgba(18,21,26,.07), 0 2px 8px rgba(18,21,26,.04);
     --shadow-sm: 0 2px 8px rgba(18,21,26,.06);
@@ -195,11 +198,6 @@
 
 <script>
 "use strict";
-// === TEMP 诊断钩子（调试后删除）===
-window.__err = null;
-window.onerror = function(m,s,l,c){ if(!window.__err){ window.__err = String(m)+" @line"+l; } };
-window.__msgN = 0; window.__initN = 0;
-// === END TEMP ===
 const $ = id => document.getElementById(id);
 const BUCKET_COUNTS = { 900: 15, 3600: 60, 86400: 24, 604800: 7 };
 function bucketCount(sec){ return BUCKET_COUNTS[sec] || 60; }
@@ -404,12 +402,8 @@ function onWebReady(cb){
 }
 onWebReady(()=>{
   window.chrome.webview.addEventListener("message", ev => {
-    window.__msgN++;
-    window.__lastT = null;
-    let d = (typeof ev.data === "string") ? JSON.parse(ev.data) : ev.data;  // PostWebMessageAsJson 已是对象
-    window.__lastT = d && d.t ? d.t : "(no-t)";
+    let d = (typeof ev.data === "string") ? JSON.parse(ev.data) : ev.data;
     if (d.t === "init"){
-      window.__initN++;
       tempCpuOn = !!d.cpuTOk; tempGpuOn = !!d.gpuTOk;
       const tagC = $("tagCpuT"), tagG = $("tagGpuT");
       tagC.textContent = tempCpuOn ? "CPU temp available" : ("CPU temp: " + (d.cpuTMsg||"disabled"));
@@ -429,19 +423,6 @@ onWebReady(()=>{
   });
 });
 
-// 启动即请求初始范围（若 init 未到达，先尝试一次，native 会重发 init）
-setTimeout(()=>{ if(!$("app")?.hidden) return; }, 300);
-
-// ---- TEMP 诊断：上报 loading/app/chrome.webview 状态（调试后删除）----
-setTimeout(()=>{
-  try{
-    const q = "hidden="+(document.getElementById("loading")?.hidden||0)
-      +"&appShown="+(!(document.getElementById("app")?.hidden===undefined)?1:0)
-      +"&wv="+(window.chrome&&window.chrome.webview?1:0)
-      +"&cb="+(window.chrome&&window.chrome.webview&&typeof window.chrome.webview.postMessage==="function"?1:0);
-    fetch("http://127.0.0.1:8137/diag?"+q).catch(()=>{});
-  }catch(e){}
-}, 4000);
 </script>
 </body>
 </html>

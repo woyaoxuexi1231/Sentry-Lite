@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Existing tag to build and publish (e.g. v1.2.0)"
+        description: "Existing tag to build and publish (e.g. v1.3.0)"
         required: true
         type: string
 
@@ -62,14 +62,12 @@ jobs:
           $root = "dist/Sentry-Lite-$ver-x64"
           New-Item -ItemType Directory -Force -Path $root | Out-Null
 
-          # Locate build outputs (Ninja -> build/, VS multi-config -> build/Release)
           $bin = if (Test-Path "build/Sentry-Lite.exe") { "build" }
                  elseif (Test-Path "build/Release/Sentry-Lite.exe") { "build/Release" }
                  else { throw "Sentry-Lite.exe not found under build/" }
 
           Copy-Item "$bin/Sentry-Lite.exe" "$root/Sentry-Lite.exe"
 
-          # LHM bridge + runtimeconfig/deps
           foreach ($f in @(
             "Sentry-Lite-lhm.dll",
             "Sentry-Lite-lhm.runtimeconfig.json",
@@ -78,12 +76,10 @@ jobs:
             if (Test-Path "$bin/$f") { Copy-Item "$bin/$f" "$root/" }
           }
 
-          # Managed deps next to the exe (framework-dependent)
           Get-ChildItem "$bin" -Filter "*.dll" -File | ForEach-Object {
             Copy-Item $_.FullName "$root/" -Force
           }
 
-          # Prefer Windows RID AccessControl (avoids MutexAccessRule null-identity crash)
           $winAc = "$bin/runtimes/win/lib/net8.0/System.Threading.AccessControl.dll"
           if (Test-Path $winAc) {
             Copy-Item $winAc "$root/System.Threading.AccessControl.dll" -Force
@@ -93,7 +89,6 @@ jobs:
             Copy-Item -Recurse "$bin/web" "$root/web"
           }
 
-          # Required files check
           foreach ($need in @("Sentry-Lite.exe", "Sentry-Lite-lhm.dll", "Sentry-Lite-lhm.runtimeconfig.json", "web/dashboard.html")) {
             if (-not (Test-Path "$root/$need")) { throw "Missing required package file: $need" }
           }
@@ -102,11 +97,6 @@ jobs:
           $zip = "dist/Sentry-Lite-$ver-x64.zip"
           if (Test-Path $zip) { Remove-Item $zip -Force }
           Compress-Archive -Path $root -DestinationPath $zip -Force
-
-          # Standalone exe asset (same binary as inside the zip)
-          Copy-Item "$root/Sentry-Lite.exe" "dist/Sentry-Lite-$ver-x64.exe" -Force
-
-          # Only upload zip + exe (not the unpacked folder)
           Remove-Item $root -Recurse -Force
 
           Get-ChildItem dist | Format-Table Name, Length
@@ -129,7 +119,6 @@ jobs:
           body_path: ${{ steps.notes.outputs.body_path }}
           files: |
             dist/Sentry-Lite-*.zip
-            dist/Sentry-Lite-*.exe
           draft: false
           prerelease: false
           fail_on_unmatched_files: true
@@ -143,7 +132,6 @@ jobs:
           generate_release_notes: true
           files: |
             dist/Sentry-Lite-*.zip
-            dist/Sentry-Lite-*.exe
           draft: false
           prerelease: false
           fail_on_unmatched_files: true

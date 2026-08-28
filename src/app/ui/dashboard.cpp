@@ -5,10 +5,10 @@
 #include <WebView2.h>
 #include <shellapi.h>
 #include <shlwapi.h>
+#include <shlobj.h>
 #include <objbase.h>
 #include <ctime>
 #include <thread>
-#include <cstdio>
 #include <algorithm>
 #include <cmath>
 #include "history/query.h"
@@ -72,7 +72,6 @@ inline std::wstring TempJson(uint8_t t) {
 }
 
 HICON LoadAppIconSize(HINSTANCE inst, int cx, int cy) {
-    // LoadImage picks the best match from the multi-size .ico (no comctl32 v6 import)
     return (HICON)LoadImageW(inst, MAKEINTRESOURCE(1), IMAGE_ICON, cx, cy, LR_DEFAULTCOLOR);
 }
 
@@ -83,7 +82,6 @@ void IconSizesForDpi(UINT dpi, int* cx_big, int* cy_big, int* cx_sm, int* cy_sm)
     *cy_sm = GetSystemMetricsForDpi(SM_CYSMICON, dpi);
 }
 
-// WebView2 CSS viewport target (logical px). Dashboard content ~608px tall at width >= 910px.
 constexpr int kCssClientW = 1008;
 constexpr int kCssClientH = 620;
 
@@ -91,7 +89,6 @@ int PhysicalClientDim(int cssPx, UINT dpi) {
     return MulDiv(cssPx, dpi, 96);
 }
 
-// mockup 时段健康分：100 − 占用超出扣分 − 温度扣分
 int BucketScore(float cpuA, float gpuA, float ramA, float cpuTA, float gpuTA) {
     float score = 100.f;
     score -= std::max(0.f, cpuA - 55.f) * 0.8f;
@@ -106,31 +103,24 @@ int BucketScore(float cpuA, float gpuA, float ramA, float cpuTA, float gpuTA) {
 
 int BucketLevel(float score) { return score < 65.f ? 2 : (score < 85.f ? 1 : 0); }
 
-std::wstring g_log_diag = L"C:\\Users\\15434\\AppData\\Local\\Temp\\sl_push.log";
-void LogDiagnostic(const wchar_t* tag, const wchar_t* s) {
-    FILE* f = nullptr;
-    if (_wfopen_s(&f, g_log_diag.c_str(), L"a") == 0 && f) {
-        fprintf(f, "ts=%lld DIAG[%ls] %ls\n", (long long)time(nullptr), tag, s);
-        fclose(f);
+std::wstring UserDataFolder() {
+    wchar_t* appdata = nullptr;
+    if (SUCCEEDED(SHGetKnownFolderPath(FOLDERID_LocalAppData, 0, nullptr, &appdata)) && appdata) {
+        std::wstring root = std::wstring(appdata) + L"\\Sentry-Lite";
+        std::wstring p = root + L"\\WebView2";
+        CoTaskMemFree(appdata);
+        CreateDirectoryW(root.c_str(), nullptr);
+        CreateDirectoryW(p.c_str(), nullptr);
+        return p;
     }
+    return ExeDir() + L"WebView2Data";
 }
 
 } // namespace
 
 void Dashboard::PushJson(const std::wstring& json) {
     if (!g_web) return;
-    BSTR b = SysAllocString(json.c_str());
-    if (b) {
-        HRESULT hr = g_web->PostWebMessageAsJson(b);
-        SysFreeString(b);
-        // TEMP 诊断日志（调试后删除）
-        FILE* f = nullptr;
-        if (_wfopen_s(&f, L"C:\\Users\\15434\\AppData\\Local\\Temp\\sl_push.log", L"a") == 0 && f) {
-            fprintf(f, "ts=%lld hr=0x%08X msg=%.60ls\n",
-                    (long long)time(nullptr), (unsigned long)hr, json.c_str());
-            fclose(f);
-        }
-    }
+    g_web->PostWebMessageAsJson(json.c_str());
 }
 
 void Dashboard::PushInit() {
@@ -172,7 +162,6 @@ bool Dashboard::Init() {
     MEMORYSTATUSEX ms{sizeof(ms)};
     if (GlobalMemoryStatusEx(&ms)) ram_total_bytes_ = ms.ullTotalPhys;
 
-    // Show UI immediately — LHM Open must not run before the window exists.
     if (!CreateWindow_()) return false;
     ShowWindow(hwnd_, SW_SHOW);
     AddTrayIcon();
@@ -182,7 +171,6 @@ bool Dashboard::Init() {
     if (!InitWebView())
         SetWindowTextW(hwnd_, L"Sentry-Lite (WebView2 Runtime or web folder missing)");
 
-    // Defer CPU/GPU temp init until after the first paint / message pump.
     PostMessageW(hwnd_, kMsgInitTemp, 0, 0);
     return true;
 }
@@ -220,7 +208,6 @@ bool Dashboard::CreateWindow_() {
     wc.hbrBackground = (HBRUSH)GetStockObject(WHITE_BRUSH);
     if (!RegisterClassExW(&wc)) return false;
 
-    // Scale physical client area by DPI so WebView2 CSS viewport stays at kCssClientW × kCssClientH.
     const int clientW = PhysicalClientDim(kCssClientW, dpi);
     const int clientH = PhysicalClientDim(kCssClientH, dpi);
     RECT rc{0, 0, clientW, clientH};
@@ -344,32 +331,33 @@ LRESULT Dashboard::HandleMsg(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         return 0;
     case WM_CLOSE:
         if (quitting_) DestroyWindow(hwnd_);
-        else ShowWindow(hwnd_, SW_HIDE);   // 关闭按钮 → 隐藏到托盘
+        else ShowWindow(hwnd_, SW_HIDE);
         return 0;
     case WM_DESTROY:
         KillTimer(hwnd_, kTimerSample);
-        recorder_.FlushNow((uint64_t)time(nullptr));  // 退出前落盘
+        recorder_.FlushNow((uint64_t)time(nullptr));
         PostQuitMessage(0);
         return 0;
     case WM_ERASEBKGND:
-        return 1;   // WebView2 覆盖，避免闪烁
+        return 1;
     }
     return DefWindowProcW(hwnd, msg, wp, lp);
 }
 
-// ---------------- WebView2 ----------------
 bool Dashboard::InitWebView() {
     std::wstring html = ExeDir() + L"web";
     if (!PathFileExistsW((html + L"\\dashboard.html").c_str())) { webview_broken_ = true; return false; }
-    // file:// URI 只接受正斜杠，反斜杠会导致 Chromium 导航失败（白屏）
     for (wchar_t& ch : html) if (ch == L'\\') ch = L'/';
 
-    // 强制软件合成：部分环境上 WebView2 页面/JS 正常、消息互通，但 GPU 合成器不把内容呈现到窗口（白屏或旧帧）。
-    // 必须在 CreateEnvironment 之前注入附加浏览器参数，才对浏览器进程生效。
-    SetEnvironmentVariableW(L"WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", L"--disable-gpu");
+    // Software compositing avoids blank frames on some GPU stacks.
+    SetEnvironmentVariableW(L"WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",
+        L"--disable-gpu --disable-features=TranslateUI,msSmartScreenProtection "
+        L"--js-flags=--max-old-space-size=96");
+
+    const std::wstring udf = UserDataFolder();
 
     HRESULT hr = CreateCoreWebView2EnvironmentWithOptions(
-        nullptr, nullptr, nullptr,
+        nullptr, udf.c_str(), nullptr,
         Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>(
             [this, html](HRESULT res, ICoreWebView2Environment* environment) -> HRESULT {
                 if (FAILED(res)) { webview_broken_ = true; return res; }
@@ -383,7 +371,6 @@ bool Dashboard::InitWebView() {
                             g_ctrl->get_CoreWebView2(g_web.GetAddressOf());
                             if (!g_web) { webview_broken_ = true; return E_FAIL; }
 
-                            // web → native 命令
                             g_web->add_WebMessageReceived(
                                 Callback<ICoreWebView2WebMessageReceivedEventHandler>(
                                     [this](ICoreWebView2*, ICoreWebView2WebMessageReceivedEventArgs* args) -> HRESULT {
@@ -395,25 +382,20 @@ bool Dashboard::InitWebView() {
                                         return S_OK;
                                     }).Get(), nullptr);
 
-                            // 页面加载完成 → 推送 init（确保前端监听已就绪）
                             g_web->add_NavigationCompleted(
                                 Callback<ICoreWebView2NavigationCompletedEventHandler>(
                                     [this](ICoreWebView2*, ICoreWebView2NavigationCompletedEventArgs* args) -> HRESULT {
                                         BOOL ok = FALSE;
                                         args->get_IsSuccess(&ok);
-                                        if (ok) {
-                                            g_web->ExecuteScript(L"window.__slNavOk=true", nullptr);
-                                            PushInit();
-                                        }
+                                        if (ok) PushInit();
                                         return S_OK;
                                     }).Get(), nullptr);
 
                             web_ready_ = true;
                             RECT rc{}; GetClientRect(hwnd_, &rc);
                             g_ctrl->put_Bounds(rc);
-                            g_ctrl->put_IsVisible(TRUE);   // 默认不可见，必须显式显示控件
+                            g_ctrl->put_IsVisible(TRUE);
 
-                            // 加载本地 dashboard.html（file:// 相对路径安全）
                             std::wstring uri = L"file:///" + html + L"/dashboard.html";
                             g_web->Navigate(uri.c_str());
                             ShowWindow(hwnd_, SW_SHOW);
@@ -470,7 +452,6 @@ void Dashboard::OnTick() {
     time_t now = time(nullptr);
     recorder_.Record(snap, (uint64_t)now);
 
-    // 每日保留策略
     uint64_t day = ((uint64_t)now) / 86400;
     if (day != last_retention_day_) {
         retention_.RunOnce(history_dir_, config_.history.raw_retention_days,
@@ -486,6 +467,7 @@ void Dashboard::OnTick() {
     double used = ram_total_bytes_ ? (ram == 0xFF ? 0.0 : ram / 100.0 * (double)ram_total_bytes_) : -1.0;
 
     std::wstring json;
+    json.reserve(192);
     json = L"{\"t\":\"live\"";
     json += L",\"cpu\":" + Num0((float)cpu) + L",\"gpu\":" + Num0((float)gpu) + L",\"ram\":" + Num0((float)ram);
     json += L",\"cpuT\":" + (pub_cpu_t_ ? TempJson(snap.cpu_temp_c) : L"-1");
@@ -497,35 +479,10 @@ void Dashboard::OnTick() {
     json += L"}";
     PushJson(json);
 
-    // init 会影响前端切换加载遮罩；在未收到前端 ready 回执前反复重发，确保最终送达
     if (!ui_ready_) PushInit();
-
-    // TEMP 诊断：每 5 秒用 ExecuteScript 探测页面真实状态（与 chrome.webview 无关，调试后删除）
-    static int probe_ticks = 0;
-    if ((++probe_ticks % 5 == 0) && g_web) {
-        g_web->ExecuteScript(
-            L"(function(){var L=document.getElementById('loading');"
-            L"var A=document.getElementById('app');"
-            L"return 'wv='+(!!(window.chrome&&window.chrome.webview))"
-            L"+'|ld='+(L?L.hidden:'na')"
-            L"+'|app='+(A?(!A.hidden):'na')"
-            L"+'|msg='+(window.__msgN||0)"
-            L"+'|init='+(window.__initN||0)"
-            L"+'|t='+(window.__lastT||'-')"
-            L"+'|pf='+(window.__pf||'-')"
-            L"+'|err='+(window.__err||'-')"
-            L"+'|body='+document.body.innerHTML.length;})()",
-            Callback<ICoreWebView2ExecuteScriptCompletedHandler>(
-                [](HRESULT, LPCWSTR r) -> HRESULT {
-                    LogDiagnostic(L"PROBE", r ? r : L"(null)");
-                    return S_OK;
-                }).Get());
-    }
 }
 
-// ---------------- web → native ----------------
 void Dashboard::HandleWebMessage(const std::wstring& text) {
-    // 协议："action|arg1|arg2|arg3"
     size_t p1 = text.find(L'|');
     std::wstring action = (p1 == std::wstring::npos) ? text : text.substr(0, p1);
     std::wstring arg = (p1 == std::wstring::npos) ? std::wstring() : text.substr(p1 + 1);
@@ -564,6 +521,7 @@ std::wstring Dashboard::BuildHistoJson(const std::wstring& dir, uint64_t end_ts,
     QueryRawRange(dir, start, end_ts, samples);
 
     std::wstring out;
+    out.reserve(B * 96 + 256);
     out = L"{\"t\":\"histo\",\"sec\":" + Num0((float)secs) + L",";
 
     if (samples.empty()) {
@@ -582,22 +540,19 @@ std::wstring Dashboard::BuildHistoJson(const std::wstring& dir, uint64_t end_ts,
         return out;
     }
 
-    // 每桶聚合（字段按 ui-mockup 命名：cpuA/cpuTA/.../score/level）
     struct Bucket {
         double cpuA=0, cpuTA=0, gpuA=0, gpuTA=0, ramA=0, dnA=0, upA=0;
-        double score=100; int level=0;
     };
 
-    auto idx = [&](uint64_t ts) -> size_t {   // 归一化到桶下标
+    auto idx = [&](uint64_t ts) -> size_t {
         size_t k = (ts <= start) ? 0 : (size_t)((double)(ts - start) / (double)secs * (double)B);
         if (k >= B) k = B - 1;
         return k;
     };
 
     std::vector<Bucket> bk(B);
-    std::vector<int> nSamples(B, 0), nCpu(B), nGpu(B), nRam(B), nCt(B), nGt(B), nNet(B);
+    std::vector<int> nSamples(B, 0), nCpu(B, 0), nGpu(B, 0), nRam(B, 0), nCt(B, 0), nGt(B, 0), nNet(B, 0);
 
-    // 全局统计
     double csum=0, gs=0, rs=0, cts=0, gts=0;
     int cn=0, gn=0, rn=0, ctn=0, gtn=0;
     uint8_t bkMaxCpu=0, bkMaxGpu=0, bkMaxRam=0, bkMaxCt=0, bkMaxGt=0;
@@ -605,10 +560,14 @@ std::wstring Dashboard::BuildHistoJson(const std::wstring& dir, uint64_t end_ts,
     for (const RawSample& s : samples) {
         size_t k = idx(s.ts_unix);
         nSamples[k]++;
-        bool cpuOk = s.cpu_pct != kSentinel, gpuOk = s.gpu_pct != kSentinel;
-        bool ramOk = s.ram_pct != kSentinel, ctOk = s.cpu_temp_c != kSentinel, gtOk = s.gpu_temp_c != kSentinel;
-        if (cpuOk) { bk[k].cpuA += s.cpu_pct; nCpu[k]++; } else nCpu[k]++;
-        if (gpuOk) { bk[k].gpuA += s.gpu_pct; nGpu[k]++; } else nGpu[k]++;
+        const bool cpuOk = s.cpu_pct != kSentinel;
+        const bool gpuOk = s.gpu_pct != kSentinel;
+        const bool ramOk = s.ram_pct != kSentinel;
+        const bool ctOk = s.cpu_temp_c != kSentinel;
+        const bool gtOk = s.gpu_temp_c != kSentinel;
+
+        if (cpuOk) { bk[k].cpuA += s.cpu_pct; nCpu[k]++; }
+        if (gpuOk) { bk[k].gpuA += s.gpu_pct; nGpu[k]++; }
         if (ramOk) { bk[k].ramA += s.ram_pct; nRam[k]++; }
         bk[k].dnA += s.net_down_bps; bk[k].upA += s.net_up_bps; nNet[k]++;
         if (ctOk) { bk[k].cpuTA += s.cpu_temp_c; nCt[k]++; }
@@ -621,7 +580,10 @@ std::wstring Dashboard::BuildHistoJson(const std::wstring& dir, uint64_t end_ts,
         if (gtOk)  { gts += s.gpu_temp_c; if (s.gpu_temp_c > bkMaxGt) bkMaxGt = s.gpu_temp_c; gtn++; }
     }
 
-    // 桶 JSON
+    // Release sample buffer before building JSON string.
+    samples.clear();
+    samples.shrink_to_fit();
+
     out += L"\"buckets\":[";
     bool first = true;
     for (size_t i = 0; i < B; ++i) {
@@ -647,7 +609,6 @@ std::wstring Dashboard::BuildHistoJson(const std::wstring& dir, uint64_t end_ts,
     }
     out += L"],";
 
-    // stats
     auto stat = [](double sum, long long max, int n, bool has)->std::wstring {
         if (!has || n == 0) return L"{\"max\":-1,\"avg\":-1}";
         wchar_t b[64];
