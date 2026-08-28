@@ -78,6 +78,14 @@ void IconSizesForDpi(UINT dpi, int* cx_big, int* cy_big, int* cx_sm, int* cy_sm)
     *cy_sm = GetSystemMetricsForDpi(SM_CYSMICON, dpi);
 }
 
+// WebView2 CSS viewport target (logical px). Dashboard content ~608px tall at width >= 910px.
+constexpr int kCssClientW = 1008;
+constexpr int kCssClientH = 620;
+
+int PhysicalClientDim(int cssPx, UINT dpi) {
+    return MulDiv(cssPx, dpi, 96);
+}
+
 // mockup 时段健康分：100 − 占用超出扣分 − 温度扣分
 int BucketScore(float cpuA, float gpuA, float ramA, float cpuTA, float gpuTA) {
     float score = 100.f;
@@ -200,7 +208,10 @@ bool Dashboard::CreateWindow_() {
     wc.hbrBackground = (HBRUSH)GetStockObject(WHITE_BRUSH);
     if (!RegisterClassExW(&wc)) return false;
 
-    RECT rc{0, 0, 1040, 760};
+    // Scale physical client area by DPI so WebView2 CSS viewport stays at kCssClientW × kCssClientH.
+    const int clientW = PhysicalClientDim(kCssClientW, dpi);
+    const int clientH = PhysicalClientDim(kCssClientH, dpi);
+    RECT rc{0, 0, clientW, clientH};
     AdjustWindowRectEx(&rc, WS_OVERLAPPEDWINDOW, FALSE, 0);
     int w = rc.right - rc.left, h = rc.bottom - rc.top;
     int sw = GetSystemMetrics(SM_CXSCREEN), sh = GetSystemMetrics(SM_CYSCREEN);
