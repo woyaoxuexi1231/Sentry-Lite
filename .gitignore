@@ -49,9 +49,6 @@ scripts/package.json
 scripts/measure-layout.mjs
 scripts/probe-fit.mjs
 
-# Unused / local-only web assets (dashboard loads Inter from Google Fonts)
-src/app/web/fonts/
-
 # OS / temp
 Thumbs.db
 Desktop.ini

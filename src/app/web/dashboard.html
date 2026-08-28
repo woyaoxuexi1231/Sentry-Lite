@@ -3,7 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <title>Sentry-Lite · Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
+  /* Local Inter as offline fallback (packaged under web/fonts/). */
   @font-face {
     font-family: "Inter";
     src: url("fonts/InterVariable.woff2") format("woff2");
@@ -16,7 +20,7 @@
     --ok: #10b981; --warn: #fbbf24; --crit: #f87171;
     --empty: #d1d5db;
     --ok-bg: rgba(16,185,129,.14); --warn-bg: rgba(251,191,36,.18); --crit-bg: rgba(248,113,113,.16);
-    --font: "Inter", "Segoe UI", sans-serif;
+    --font: "Inter", sans-serif;
     --r-xl: 28px; --r-lg: 20px; --r-md: 14px;
     --shadow: 0 16px 48px rgba(18,21,26,.07), 0 2px 8px rgba(18,21,26,.04);
     --shadow-sm: 0 2px 8px rgba(18,21,26,.06);
@@ -38,8 +42,8 @@
          background:var(--surface2); color:var(--muted); cursor:pointer; transition:.15s; }
   .btn:hover { color:var(--text); border-color:#cfd4de; background:#fff; }
   .btn:disabled { opacity:.45; cursor:default; }
-  .btn.danger { color:var(--crit); border-color:rgba(248,113,113,.35); }
-  .btn.danger:hover { color:#dc2626; border-color:rgba(248,113,113,.55); background:#fff5f5; }
+  .btn.danger { color: var(--crit); border-color: rgba(248,113,113,.35); }
+  .btn.danger:hover { color: var(--crit); border-color: rgba(248,113,113,.55); background: #fff; }
   .btn.spinning .ico { display:inline-block; animation:spin .7s linear infinite; }
   @keyframes spin { to { transform:rotate(360deg); } }
   .range { display:flex; gap:3px; background:var(--surface2); border:1px solid var(--border); border-radius:var(--r-lg); padding:4px; }
@@ -52,7 +56,7 @@
   .live-card .label { font-size:13px; font-weight:500; color:var(--muted); margin-bottom:8px; }
   .live-card .value { font-size:24px; font-weight:600; letter-spacing:-.03em; line-height:1; font-variant-numeric:tabular-nums; font-family:var(--font); transition:color .15s; }
   .live-card .sub { font-size:13px; margin-top:6px; font-variant-numeric:tabular-nums; font-family:var(--font); transition:color .15s; }
-  .sev-ok{color:var(--ok)!important;} .sev-warn{color:#d97706!important;} .sev-crit{color:var(--crit)!important;}
+  .sev-ok{color:var(--ok)!important;} .sev-warn{color:var(--warn)!important;} .sev-crit{color:var(--crit)!important;}
   .live-card .sub.neutral{color:var(--muted)!important;}
   .live-card.net .value{font-size:22px;} .live-card.net .sub{font-size:12px;}
   .panel { background:var(--surface2); border:1px solid var(--border); border-radius:var(--r-lg); padding:20px 22px; margin-bottom:14px; position:relative; }
@@ -70,7 +74,7 @@
   .bar-axis{display:flex;justify-content:space-between;margin-top:10px;font-size:13px;color:var(--muted);}
   .uptime-note{margin-top:10px;font-size:11px;color:var(--muted);line-height:1.7;letter-spacing:.01em;user-select:none;display:flex;flex-direction:column;gap:2px;}
   .uptime-note .k{font-weight:600;color:var(--text);}
-  .uptime-note .c-ok{color:var(--ok);font-weight:600;} .uptime-note .c-warn{color:#d97706;font-weight:600;} .uptime-note .c-crit{color:var(--crit);font-weight:600;}
+  .uptime-note .c-ok{color:var(--ok);font-weight:600;} .uptime-note .c-warn{color:var(--warn);font-weight:600;} .uptime-note .c-crit{color:var(--crit);font-weight:600;}
   .uptime-note .sep{opacity:.45;margin:0 2px;}
   .temp-note{display:inline-flex;align-items:center;gap:6px;margin-top:8px;font-size:11px;color:var(--muted);}
   .temp-note .tag{display:inline-block;padding:2px 8px;border-radius:8px;font-family:var(--font);}
@@ -91,7 +95,7 @@
   .bar-tip .metric-row .dot{width:7px;height:7px;border-radius:999px;flex-shrink:0;background:var(--muted);opacity:.45;}
   .bar-tip .metric-row .vals{display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end;}
   .pill{display:inline-block;padding:3px 9px;border-radius:8px;font-size:12px;font-weight:600;font-variant-numeric:tabular-nums;font-family:var(--font);line-height:1.3;}
-  .pill.ok{background:var(--ok-bg);color:var(--ok);} .pill.warn{background:var(--warn-bg);color:#b45309;} .pill.crit{background:var(--crit-bg);color:var(--crit);} .pill.neutral{background:rgba(115,115,115,.1);color:var(--text);}
+  .pill.ok{background:var(--ok-bg);color:var(--ok);} .pill.warn{background:var(--warn-bg);color:var(--warn);} .pill.crit{background:var(--crit-bg);color:var(--crit);} .pill.neutral{background:rgba(115,115,115,.1);color:var(--text);}
   .bar-tip .legend{display:flex;gap:12px;flex-wrap:wrap;padding-top:12px;border-top:1px solid var(--border);}
   .bar-tip .legend-item{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--muted);}
   .bar-tip .legend-item .swatch{width:8px;height:8px;border-radius:999px;}
@@ -102,7 +106,7 @@
   .stat{font-size:11.5px;color:var(--muted);padding:8px 12px;font-variant-numeric:tabular-nums;font-family:var(--font);background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-md);}
   .stat .v{font-weight:600;font-size:11.5px;}
   .stat.color-rule{white-space:nowrap;display:inline-flex;align-items:center;flex-wrap:wrap;gap:4px 6px;}
-  .stat.color-rule .c{font-weight:600;font-size:11.5px;} .stat.color-rule .c.ok{color:var(--ok);} .stat.color-rule .c.warn{color:#d97706;} .stat.color-rule .c.crit{color:var(--crit);}
+  .stat.color-rule .c{font-weight:600;font-size:11.5px;} .stat.color-rule .c.ok{color:var(--ok);} .stat.color-rule .c.warn{color:var(--warn);} .stat.color-rule .c.crit{color:var(--crit);}
   .stat.color-rule .divider{opacity:.45;margin:0 2px;} .stat.color-rule .group-label{font-weight:500;color:var(--text);margin-right:2px;}
   .empty{padding:14px 2px;font-size:12.5px;color:var(--muted);}
   .foot{margin-top:18px;font-size:13px;color:var(--muted);display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;}
@@ -121,8 +125,7 @@
     </div>
     <div class="actions">
       <div class="range" id="rangeSelector">
-        <button type="button" data-sec="900">15m</button>
-        <button type="button" data-sec="3600" class="on">1h</button>
+        <button type="button" data-sec="1800" class="on">30m</button>
         <button type="button" data-sec="86400">24h</button>
         <button type="button" data-sec="604800">7d</button>
       </div>
@@ -145,7 +148,7 @@
       <span class="score sev-ok" id="healthScore">—</span>
     </div>
     <div class="bars" id="bars"></div>
-    <div class="bar-axis"><span id="axisL">now</span><span>now</span></div>
+    <div class="bar-axis"><span id="axisL">30 min ago</span><span>now</span></div>
     <div class="uptime-note">
       <div class="rule-row"><span class="k">Score:</span> 100 <span class="sep">−</span> 0.8 per 1% CPU over 55% <span class="sep">−</span> 0.5 per 1% GPU over 45% <span class="sep">−</span> 2 per 1% RAM over 90% <span class="sep">−</span> 5–12 for temp ≥75°C</div>
       <div class="color-row"><span class="c-crit">&lt;65 Critical</span><span class="sep">·</span><span class="c-warn">65–85 Degraded</span><span class="sep">·</span><span class="c-ok">&gt;85 Healthy</span><span class="sep">·</span><span>Uptime% = share of healthy periods</span></div>
@@ -199,14 +202,14 @@
 <script>
 "use strict";
 const $ = id => document.getElementById(id);
-const BUCKET_COUNTS = { 900: 15, 3600: 60, 86400: 24, 604800: 7 };
-function bucketCount(sec){ return BUCKET_COUNTS[sec] || 60; }
-const AXIS_LABELS = { 900:"15 min", 3600:"1 hour", 86400:"24 hours", 604800:"7 days" };
+const BUCKET_COUNTS = { 1800: 30, 86400: 24, 604800: 7 };
+function bucketCount(sec){ return BUCKET_COUNTS[sec] || 30; }
+const AXIS_LABELS = { 1800:"30 min", 86400:"24 hours", 604800:"7 days" };
 const ST = { ok:{label:"Healthy"}, warn:{label:"Degraded"}, crit:{label:"Critical"}, empty:{label:"No data"} };
 
 // ---- native 状态 ----
 let tempCpuOn = false, tempGpuOn = false;
-let currentSec = 3600;
+let currentSec = 1800;
 let currentBuckets = [];
 let busy = false;
 

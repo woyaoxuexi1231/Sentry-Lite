@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(Sentry-Lite VERSION 1.3.0 LANGUAGES CXX RC)
+project(Sentry-Lite VERSION 1.3.1 LANGUAGES CXX RC)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -8,7 +8,7 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
 endif()
 
-# ---- 单 EXE 主程序（含温度采集，无 PawnIO 时自动降级不检测）----
+# ---- �?EXE 主程序（含温度采集，�?PawnIO 时自动降级不检测）----
 add_executable(Sentry-Lite WIN32
     src/app/main.cpp
     src/app/core/config.cpp
@@ -60,7 +60,7 @@ set_source_files_properties(resources/app.rc PROPERTIES
     VS_SETTINGS "WorkingDirectory=${CMAKE_SOURCE_DIR}/resources"
 )
 
-# 构建后把 web 资源目录复制到 exe 旁，供 WebView2 虚拟主机加载
+# 构建后把 web 资源目录复制�?exe 旁，�?WebView2 虚拟主机加载
 add_custom_command(TARGET Sentry-Lite POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
             "${CMAKE_SOURCE_DIR}/src/app/web" "$<TARGET_FILE_DIR:Sentry-Lite>/web"
