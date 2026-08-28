@@ -57,12 +57,12 @@ bool PawnIoClient::Open(std::wstring& err) {
     Close();
     std::wstring dll = FindDll();
     if (dll.empty()) {
-        err = L"PawnIOLib.dll 未找到，请先安装 PawnIO（https://pawnio.eu）";
+        err = L"PawnIOLib.dll not found — install PawnIO (https://pawnio.eu)";
         return false;
     }
     dll_ = LoadLibraryW(dll.c_str());
     if (!dll_) {
-        err = L"无法加载 PawnIOLib.dll";
+        err = L"Failed to load PawnIOLib.dll";
         return false;
     }
     fn_open_ = reinterpret_cast<open_fn>(GetProcAddress(dll_, "pawnio_open"));
@@ -70,13 +70,13 @@ bool PawnIoClient::Open(std::wstring& err) {
     fn_exec_ = reinterpret_cast<exec_fn>(GetProcAddress(dll_, "pawnio_execute"));
     fn_close_ = reinterpret_cast<close_fn>(GetProcAddress(dll_, "pawnio_close"));
     if (!fn_open_ || !fn_load_ || !fn_exec_ || !fn_close_) {
-        err = L"PawnIOLib.dll 缺少导出函数";
+        err = L"PawnIOLib.dll missing required exports";
         Close();
         return false;
     }
     long hr = fn_open_(&handle_);
     if (hr < 0 || !handle_) {
-        err = L"pawnio_open 失败（需管理员权限且 PawnIO 驱动已安装）";
+        err = L"pawnio_open failed (admin rights and PawnIO driver required)";
         Close();
         return false;
     }
@@ -85,22 +85,22 @@ bool PawnIoClient::Open(std::wstring& err) {
 
 bool PawnIoClient::LoadModule(const wchar_t* blob_name, std::wstring& err) {
     if (!handle_) {
-        err = L"PawnIO 未打开";
+        err = L"PawnIO not open";
         return false;
     }
     std::wstring path = FindBlob(blob_name);
     if (path.empty()) {
-        err = std::wstring(L"找不到模块 ") + blob_name + L"（请从 PawnIO.Modules Releases 获取）";
+        err = std::wstring(L"Module not found: ") + blob_name + L" (get from PawnIO.Modules Releases)";
         return false;
     }
     std::vector<uint8_t> blob;
     if (!ReadAll(path, blob)) {
-        err = L"无法读取模块 " + path;
+        err = L"Failed to read module " + path;
         return false;
     }
     long hr = fn_load_(handle_, blob.data(), blob.size());
     if (hr < 0) {
-        err = L"pawnio_load 失败";
+        err = L"pawnio_load failed";
         return false;
     }
     return true;
@@ -112,7 +112,7 @@ bool PawnIoClient::Execute(const char* fn, const uint64_t* in, size_t in_n,
     size_t written = 0;
     long hr = fn_exec_(handle_, fn, in, in_n, out, out_n, &written);
     if (hr < 0) {
-        err = L"pawnio_execute 失败";
+        err = L"pawnio_execute failed";
         return false;
     }
     return true;

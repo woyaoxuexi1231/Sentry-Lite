@@ -156,7 +156,7 @@ bool Dashboard::Init() {
     SetTimer(hwnd_, kTimerSample, 1000u, nullptr);
 
     if (!InitWebView())
-        SetWindowTextW(hwnd_, L"Sentry-Lite（需 WebView2 Runtime 或 web 目录缺失）");
+        SetWindowTextW(hwnd_, L"Sentry-Lite (WebView2 Runtime or web folder missing)");
     return true;
 }
 
@@ -166,10 +166,10 @@ void Dashboard::InitTemperature() {
         if (temp_cpu_.Init(temp_pio_, err)) pub_cpu_t_ = true;
         else temp_cpu_msg_ = err;
     } else {
-        temp_cpu_msg_ = err.empty() ? L"未安装 PawnIO" : err;
+        temp_cpu_msg_ = err.empty() ? L"PawnIO not installed" : err;
     }
     if (temp_gpu_.Init()) pub_gpu_t_ = true;
-    else temp_gpu_msg_ = L"未检测到 NVIDIA GPU";
+    else temp_gpu_msg_ = L"No NVIDIA GPU detected";
 }
 
 bool Dashboard::CreateWindow_() {
@@ -208,11 +208,11 @@ bool Dashboard::AddTrayIcon() {
 
 void Dashboard::InitMenu() {
     menu_ = CreatePopupMenu();
-    AppendMenuW(menu_, MF_STRING, kMenuShow, L"显示 / 隐藏主窗口");
+    AppendMenuW(menu_, MF_STRING, kMenuShow, L"Show / Hide Window");
     AppendMenuW(menu_, MF_SEPARATOR, 0, nullptr);
-    AppendMenuW(menu_, MF_STRING, kMenuOpenHistory, L"打开历史数据文件夹");
+    AppendMenuW(menu_, MF_STRING, kMenuOpenHistory, L"Open History Folder");
     AppendMenuW(menu_, MF_SEPARATOR, 0, nullptr);
-    AppendMenuW(menu_, MF_STRING, kMenuExit, L"退出");
+    AppendMenuW(menu_, MF_STRING, kMenuExit, L"Exit");
 }
 
 void Dashboard::ProcessMenu(int id) {
@@ -257,17 +257,22 @@ LRESULT Dashboard::HandleMsg(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     case WM_TIMER:
         if (wp == kTimerSample) OnTick();
         return 0;
-    case kMsgTray:
-        if (LOWORD(lp) == WM_RBUTTONUP) {
+    case kMsgTray: {
+        const UINT trayMsg = LOWORD(lp);
+        if (trayMsg == WM_RBUTTONUP || trayMsg == WM_CONTEXTMENU) {
             SetForegroundWindow(hwnd_);
-            POINT pt; GetCursorPos(&pt);
-            TrackPopupMenu(menu_, TPM_RIGHTBUTTON | TPM_RETURNCMD, pt.x, pt.y, 0, hwnd_, nullptr);
+            POINT pt{};
+            GetCursorPos(&pt);
+            const UINT cmd = TrackPopupMenu(
+                menu_, TPM_RIGHTBUTTON | TPM_RETURNCMD, pt.x, pt.y, 0, hwnd_, nullptr);
             PostMessageW(hwnd_, WM_NULL, 0, 0);
-        } else if (LOWORD(lp) == WM_LBUTTONUP) {
+            if (cmd) ProcessMenu(static_cast<int>(cmd));
+        } else if (trayMsg == WM_LBUTTONUP || trayMsg == WM_LBUTTONDBLCLK) {
             ShowWindow(hwnd_, IsWindowVisible(hwnd_) ? SW_HIDE : SW_SHOW);
             if (IsWindowVisible(hwnd_)) SetForegroundWindow(hwnd_);
         }
         return 0;
+    }
     case WM_COMMAND:
         if (HIWORD(wp) == 0) ProcessMenu(LOWORD(wp));
         return 0;

@@ -26,7 +26,10 @@ public:
     ~Dashboard();
     bool Init();
     int Run();
-    void RequestQuit() { PostMessageW(hwnd_, WM_CLOSE, 0, 0); }
+    void RequestQuit() {
+        quitting_ = true;
+        PostMessageW(hwnd_, WM_CLOSE, 0, 0);
+    }
 
 private:
     // Win32

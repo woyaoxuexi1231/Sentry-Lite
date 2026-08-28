@@ -39,7 +39,7 @@ bool CpuTempReader::Init(PawnIoClient& pio, std::wstring& err) {
     pio_ = &pio;
     auto v = DetectVendor();
     if (v == CpuTempReader::Vendor::Unknown) {
-        err = L"不支持的 CPU 厂商";
+        err = L"Unsupported CPU vendor";
         return false;
     }
     vendor_ = v;
