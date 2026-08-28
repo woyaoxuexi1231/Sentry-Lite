@@ -13,6 +13,7 @@ public:
     bool Init(const std::wstring& dir, uint64_t now_ts);
     void Record(const Snapshot& snap, uint64_t ts_unix);
     void FlushNow(uint64_t ts_unix);
+    void ClearAll(const std::wstring& dir, uint64_t now_ts);
     void Shutdown();
 
     // 供后续查看器（M3）：最近样本环形缓冲

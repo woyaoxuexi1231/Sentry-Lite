@@ -267,7 +267,15 @@ void Dashboard::ProcessMenu(int id) {
 }
 
 void Dashboard::OpenHistoryFolder() {
+    CreateDirectoryW(history_dir_.c_str(), nullptr);
     ShellExecuteW(hwnd_, L"open", history_dir_.c_str(), nullptr, nullptr, SW_SHOW);
+}
+
+void Dashboard::ClearHistoryData() {
+    uint64_t now = (uint64_t)time(nullptr);
+    if (config_.history.enabled)
+        recorder_.ClearAll(history_dir_, now);
+    PushJson(L"{\"t\":\"cleared\"}");
 }
 
 void Dashboard::RequestQuitFromWeb() {
@@ -479,7 +487,9 @@ void Dashboard::HandleWebMessage(const std::wstring& text) {
     std::wstring arg = (p1 == std::wstring::npos) ? std::wstring() : text.substr(p1 + 1);
     if (action == L"histo") RequestHisto(arg);
     else if (action == L"quit") RequestQuitFromWeb();
-    else if (action == L"ready") ui_ready_ = true;   // 前端已注册监听并处理 init
+    else if (action == L"ready") ui_ready_ = true;
+    else if (action == L"openHistory") OpenHistoryFolder();
+    else if (action == L"clearHistory") ClearHistoryData();
 }
 
 void Dashboard::RequestHisto(const std::wstring& arg) {
@@ -513,7 +523,18 @@ std::wstring Dashboard::BuildHistoJson(const std::wstring& dir, uint64_t end_ts,
     out = L"{\"t\":\"histo\",\"sec\":" + Num0((float)secs) + L",";
 
     if (samples.empty()) {
-        out += L"\"buckets\":[],\"stats\":{}}";
+        out += L"\"buckets\":[";
+        for (size_t i = 0; i < B; ++i) {
+            if (i) out += L",";
+            out += L"{\"empty\":true}";
+        }
+        out += L"],\"stats\":{"
+               L"\"cpu\":{\"max\":-1,\"avg\":-1},"
+               L"\"cpuT\":{\"max\":-1,\"avg\":-1},"
+               L"\"gpu\":{\"max\":-1,\"avg\":-1},"
+               L"\"gpuT\":{\"max\":-1,\"avg\":-1},"
+               L"\"ram\":{\"max\":-1,\"avg\":-1}"
+               L"}}";
         return out;
     }
 

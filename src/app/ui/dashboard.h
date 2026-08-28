@@ -51,6 +51,7 @@ private:
     void RequestHisto(const std::wstring& arg);   // histo|<secs>|<end_ts>|<buckets>
     void RequestQuitFromWeb();
     void OpenHistoryFolder();
+    void ClearHistoryData();
 
     // WebView2 初始化
     bool InitWebView();

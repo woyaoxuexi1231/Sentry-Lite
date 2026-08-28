@@ -35,6 +35,10 @@
          background:var(--surface2); color:var(--muted); cursor:pointer; transition:.15s; }
   .btn:hover { color:var(--text); border-color:#cfd4de; background:#fff; }
   .btn:disabled { opacity:.45; cursor:default; }
+  .btn.danger { color:var(--crit); border-color:rgba(248,113,113,.35); }
+  .btn.danger:hover { color:#dc2626; border-color:rgba(248,113,113,.55); background:#fff5f5; }
+  .btn.spinning .ico { display:inline-block; animation:spin .7s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
   .range { display:flex; gap:3px; background:var(--surface2); border:1px solid var(--border); border-radius:var(--r-lg); padding:4px; }
   .range button { font:500 13px var(--font); padding:7px 12px; border:none; background:transparent; color:var(--muted);
                   border-radius:var(--r-md); cursor:pointer; transition:.12s; }
@@ -88,12 +92,15 @@
   .bar-tip .legend{display:flex;gap:12px;flex-wrap:wrap;padding-top:12px;border-top:1px solid var(--border);}
   .bar-tip .legend-item{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--muted);}
   .bar-tip .legend-item .swatch{width:8px;height:8px;border-radius:999px;}
+  .stats-block{display:flex;flex-direction:column;gap:8px;}
   .stats{display:flex;gap:8px;flex-wrap:wrap;}
+  .stats.rules{flex-wrap:nowrap;}
+  @media (max-width:900px){ .stats.rules{flex-wrap:wrap;} }
   .stat{font-size:11.5px;color:var(--muted);padding:8px 12px;font-variant-numeric:tabular-nums;font-family:var(--font);background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-md);}
   .stat .v{font-weight:600;font-size:11.5px;}
-  .stat.color-rule{white-space:normal;}
+  .stat.color-rule{white-space:nowrap;display:inline-flex;align-items:center;flex-wrap:wrap;gap:4px 6px;}
   .stat.color-rule .c{font-weight:600;font-size:11.5px;} .stat.color-rule .c.ok{color:var(--ok);} .stat.color-rule .c.warn{color:#d97706;} .stat.color-rule .c.crit{color:var(--crit);}
-  .stat.color-rule .divider{opacity:.45;margin:0 5px;} .stat.color-rule .group-label{font-weight:500;color:var(--text);}
+  .stat.color-rule .divider{opacity:.45;margin:0 2px;} .stat.color-rule .group-label{font-weight:500;color:var(--text);margin-right:2px;}
   .empty{padding:14px 2px;font-size:12.5px;color:var(--muted);}
   .foot{margin-top:18px;font-size:13px;color:var(--muted);display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;}
   #loading{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:var(--bg);color:var(--muted);font-size:14px;z-index:99;}
@@ -115,7 +122,10 @@
         <button type="button" data-sec="3600" class="on">1h</button>
         <button type="button" data-sec="86400">24h</button>
         <button type="button" data-sec="604800">7d</button>
-        </div>
+      </div>
+      <button type="button" class="btn" id="btnRefresh" title="Reload uptime for the current range"><span class="ico">↻</span> Refresh</button>
+      <button type="button" class="btn" id="btnOpenData" title="Open history data folder">Open Folder</button>
+      <button type="button" class="btn danger" id="btnClearData" title="Delete all recorded history">Clear Data</button>
     </div>
   </header>
 
@@ -159,20 +169,24 @@
     </div>
   </section>
 
-  <div class="stats" id="statsRow">
-    <div class="stat" id="statCpu">CPU —</div>
-    <div class="stat" id="statGpu">GPU —</div>
-    <div class="stat" id="statRam">RAM —</div>
-    <div class="stat color-rule">
-      <span class="group-label">CPU</span><span class="c ok">&lt;70%</span><span class="c warn">70–90%</span><span class="c crit">≥90%</span><span class="divider">·</span>
-      <span class="c ok">&lt;75°C</span><span class="c warn">75–85°C</span><span class="c crit">≥85°C</span>
+  <div class="stats-block">
+    <div class="stats" id="statsRow">
+      <div class="stat" id="statCpu">CPU —</div>
+      <div class="stat" id="statGpu">GPU —</div>
+      <div class="stat" id="statRam">RAM —</div>
     </div>
-    <div class="stat color-rule">
-      <span class="group-label">GPU</span><span class="c ok">&lt;70%</span><span class="c warn">70–90%</span><span class="c crit">≥90%</span><span class="divider">·</span>
-      <span class="c ok">&lt;75°C</span><span class="c warn">75–85°C</span><span class="c crit">≥85°C</span>
-    </div>
-    <div class="stat color-rule">
-      <span class="group-label">RAM</span><span class="c ok">&lt;80%</span><span class="c warn">80–90%</span><span class="c crit">≥90%</span>
+    <div class="stats rules" id="colorRulesRow">
+      <div class="stat color-rule">
+        <span class="group-label">CPU</span><span class="c ok">&lt;70%</span><span class="c warn">70–90%</span><span class="c crit">≥90%</span><span class="divider">·</span>
+        <span class="c ok">&lt;75°C</span><span class="c warn">75–85°C</span><span class="c crit">≥85°C</span>
+      </div>
+      <div class="stat color-rule">
+        <span class="group-label">GPU</span><span class="c ok">&lt;70%</span><span class="c warn">70–90%</span><span class="c crit">≥90%</span><span class="divider">·</span>
+        <span class="c ok">&lt;75°C</span><span class="c warn">75–85°C</span><span class="c crit">≥85°C</span>
+      </div>
+      <div class="stat color-rule">
+        <span class="group-label">RAM</span><span class="c ok">&lt;80%</span><span class="c warn">80–90%</span><span class="c crit">≥90%</span>
+      </div>
     </div>
   </div>
 
@@ -216,13 +230,15 @@ function setPills(id, items){ $(id).innerHTML = items.join(""); }
 function setLive(id, text, sev, sub){
   const el = $(id);
   el.textContent = text;
-  el.className = (sub ? "sub" : "value") + " " + sevCls(sev);
+  el.className = (sub ? "sub" : "value") + (sev === "neutral" ? " neutral" : " " + sevCls(sev));
 }
 function onLive(d){
   setLive("liveCpu", fmtPct(d.cpu), sevPct(d.cpu));
-  setLive("liveCpuT", tempCpuOn ? fmtTemp(d.cpuT) : "—", d.cpuT>=0 ? sevTemp(d.cpuT) : "ok", true);
+  const cpuTAvail = tempCpuOn && d.cpuT >= 0;
+  setLive("liveCpuT", cpuTAvail ? fmtTemp(d.cpuT) : "—", cpuTAvail ? sevTemp(d.cpuT) : "neutral", true);
   setLive("liveGpu", fmtPct(d.gpu), sevPct(d.gpu));
-  setLive("liveGpuT", tempGpuOn ? fmtTemp(d.gpuT) : "—", d.gpuT>=0 ? sevTemp(d.gpuT) : "ok", true);
+  const gpuTAvail = tempGpuOn && d.gpuT >= 0;
+  setLive("liveGpuT", gpuTAvail ? fmtTemp(d.gpuT) : "—", gpuTAvail ? sevTemp(d.gpuT) : "neutral", true);
   setLive("liveRam", fmtPct(d.ram), sevRam(d.ram));
   if (d.ramUsed>=0 && d.ramTotal>0)
     $("liveRamSub").textContent = fmtGb(d.ramUsed)+" / "+fmtGb(d.ramTotal)+" GB";
@@ -264,24 +280,41 @@ function renderBars(buckets, axisL){
 }
 
 // ---- 统计 ----
+function emptyStat(){ return { max:-1, avg:-1 }; }
 function renderStats(s){
+  s = s || {};
+  const cpu = s.cpu || emptyStat(), cpuT = s.cpuT || emptyStat();
+  const gpu = s.gpu || emptyStat(), gpuT = s.gpuT || emptyStat();
+  const ram = s.ram || emptyStat();
   const val = (c)=>{return `<span class="v ${c.cls}">${c.v}</span>`;};
-  $("statCpu").innerHTML = `CPU  max ${val({v:fmtPct(s.cpu.max), cls:sevCls(sevPct(s.cpu.max))})}${tempCpuOn?" / "+val({v:fmtTemp(s.cpuT.max), cls:sevCls(sevTemp(s.cpuT.max))}):""}  avg ${val({v:fmtPct(s.cpu.avg), cls:sevCls(sevPct(s.cpu.avg))})}${tempCpuOn?" / "+val({v:fmtTemp(s.cpuT.avg), cls:sevCls(sevTemp(s.cpuT.avg))}):""}`;
-  $("statGpu").innerHTML = `GPU  max ${val({v:fmtPct(s.gpu.max), cls:sevCls(sevPct(s.gpu.max))})}${tempGpuOn?" / "+val({v:fmtTemp(s.gpuT.max), cls:sevCls(sevTemp(s.gpuT.max))}):""}  avg ${val({v:fmtPct(s.gpu.avg), cls:sevCls(sevPct(s.gpu.avg))})}${tempGpuOn?" / "+val({v:fmtTemp(s.gpuT.avg), cls:sevCls(sevTemp(s.gpuT.avg))}):""}`;
-  $("statRam").innerHTML = `RAM  max ${val({v:fmtPct(s.ram.max), cls:sevCls(sevRam(s.ram.max))})}  avg ${val({v:fmtPct(s.ram.avg), cls:sevCls(sevRam(s.ram.avg))})}`;
+  $("statCpu").innerHTML = `CPU  max ${val({v:fmtPct(cpu.max), cls:sevCls(sevPct(cpu.max))})}${tempCpuOn?" / "+val({v:fmtTemp(cpuT.max), cls:sevCls(sevTemp(cpuT.max))}):""}  avg ${val({v:fmtPct(cpu.avg), cls:sevCls(sevPct(cpu.avg))})}${tempCpuOn?" / "+val({v:fmtTemp(cpuT.avg), cls:sevCls(sevTemp(cpuT.avg))}):""}`;
+  $("statGpu").innerHTML = `GPU  max ${val({v:fmtPct(gpu.max), cls:sevCls(sevPct(gpu.max))})}${tempGpuOn?" / "+val({v:fmtTemp(gpuT.max), cls:sevCls(sevTemp(gpuT.max))}):""}  avg ${val({v:fmtPct(gpu.avg), cls:sevCls(sevPct(gpu.avg))})}${tempGpuOn?" / "+val({v:fmtTemp(gpuT.avg), cls:sevCls(sevTemp(gpuT.avg))}):""}`;
+  $("statRam").innerHTML = `RAM  max ${val({v:fmtPct(ram.max), cls:sevCls(sevRam(ram.max))})}  avg ${val({v:fmtPct(ram.avg), cls:sevCls(sevRam(ram.avg))})}`;
 }
 
 // ---- 范围请求 ----
+function setRefreshBusy(on) {
+  const btn = $("btnRefresh");
+  if (!btn) return;
+  btn.disabled = on;
+  btn.classList.toggle("spinning", on);
+}
 function requestHisto(){
-  if (busy) return; busy = true;
+  if (busy) return;
+  busy = true;
+  setRefreshBusy(true);
   const now = Math.floor(Date.now()/1000);
   const msg = "histo|" + currentSec + "|" + now + "|" + bucketCount(currentSec);
   if (window.chrome && chrome.webview) chrome.webview.postMessage(msg);
 }
 function onHisto(d){
-  renderBars(d.buckets, AXIS_LABELS[d.sec]||"");
-  renderStats(d.stats);
-  busy = false;
+  try {
+    renderBars(d.buckets || [], AXIS_LABELS[d.sec]||"");
+    renderStats(d.stats);
+  } finally {
+    busy = false;
+    setRefreshBusy(false);
+  }
 }
 
 // ---- tooltip（悬停 Uptime 条，实时细节来自当前桶）----
@@ -335,7 +368,20 @@ barsEl.addEventListener("mouseleave", ()=>{
   barsEl.querySelectorAll(".bar").forEach(b=>b.classList.remove("on"));
 });
 
+function postNative(msg) {
+  if (window.chrome && chrome.webview) chrome.webview.postMessage(msg);
+}
+function openDataFolder() { postNative("openHistory"); }
+function clearData() {
+  if (!confirm("Delete all recorded history data? This cannot be undone.")) return;
+  $("btnClearData").disabled = true;
+  postNative("clearHistory");
+}
+
 // ---- 范围切换 ----
+$("btnRefresh").addEventListener("click", () => requestHisto());
+$("btnOpenData").addEventListener("click", openDataFolder);
+$("btnClearData").addEventListener("click", clearData);
 $("rangeSelector").querySelectorAll("button").forEach(btn=>{
   btn.addEventListener("click", ()=>{
     $("rangeSelector").querySelectorAll("button").forEach(b=>b.classList.remove("on"));
@@ -376,6 +422,10 @@ onWebReady(()=>{
       window.chrome.webview.postMessage("ready");   // 告知 native 停止重发 init
     } else if (d.t === "live"){ onLive(d); }
     else if (d.t === "histo"){ onHisto(d); }
+    else if (d.t === "cleared"){
+      $("btnClearData").disabled = false;
+      requestHisto();
+    }
   });
 });
 
