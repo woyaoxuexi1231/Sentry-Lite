@@ -1,6 +1,7 @@
 build/
 dist/
 .vs/
+.idea/
 *.user
 *.obj
 *.pdb
@@ -9,3 +10,4 @@ dist/
 *.lib
 *.exe
 !resources/
+!third_party/webview2/lib/x64/WebView2LoaderStatic.lib
