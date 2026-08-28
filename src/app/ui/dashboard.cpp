@@ -530,7 +530,7 @@ std::wstring Dashboard::BuildHistoJson(const std::wstring& dir, uint64_t end_ts,
     };
 
     std::vector<Bucket> bk(B);
-    std::vector<int> nCpu(B), nGpu(B), nRam(B), nCt(B), nGt(B), nNet(B);
+    std::vector<int> nSamples(B, 0), nCpu(B), nGpu(B), nRam(B), nCt(B), nGt(B), nNet(B);
 
     // 全局统计
     double csum=0, gs=0, rs=0, cts=0, gts=0;
@@ -539,6 +539,7 @@ std::wstring Dashboard::BuildHistoJson(const std::wstring& dir, uint64_t end_ts,
 
     for (const RawSample& s : samples) {
         size_t k = idx(s.ts_unix);
+        nSamples[k]++;
         bool cpuOk = s.cpu_pct != kSentinel, gpuOk = s.gpu_pct != kSentinel;
         bool ramOk = s.ram_pct != kSentinel, ctOk = s.cpu_temp_c != kSentinel, gtOk = s.gpu_temp_c != kSentinel;
         if (cpuOk) { bk[k].cpuA += s.cpu_pct; nCpu[k]++; } else nCpu[k]++;
@@ -559,9 +560,13 @@ std::wstring Dashboard::BuildHistoJson(const std::wstring& dir, uint64_t end_ts,
     out += L"\"buckets\":[";
     bool first = true;
     for (size_t i = 0; i < B; ++i) {
-        const Bucket& b = bk[i];
         if (!first) out += L",";
         first = false;
+        if (nSamples[i] == 0) {
+            out += L"{\"empty\":true}";
+            continue;
+        }
+        const Bucket& b = bk[i];
         float cpuA = nCpu[i] ? (float)(b.cpuA / nCpu[i]) : 0.f;
         float gpuA = nGpu[i] ? (float)(b.gpuA / nGpu[i]) : 0.f;
         float ramA = nRam[i] ? (float)(b.ramA / nRam[i]) : 0.f;

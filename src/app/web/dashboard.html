@@ -11,6 +11,7 @@
     --bg: #ffffff; --surface: #ffffff; --surface2: #f6f7f9; --border: #e4e7ee;
     --text: #171717; --muted: #737373;
     --ok: #10b981; --warn: #fbbf24; --crit: #f87171;
+    --empty: #d1d5db;
     --ok-bg: rgba(16,185,129,.14); --warn-bg: rgba(251,191,36,.18); --crit-bg: rgba(248,113,113,.16);
     --font: "Inter", sans-serif;
     --r-xl: 28px; --r-lg: 20px; --r-md: 14px;
@@ -51,10 +52,13 @@
   .panel-head { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:12px; }
   .panel-head h2{font-size:14px;font-weight:500;}
   .panel-head .score{font-size:14px;font-weight:600;font-variant-numeric:tabular-nums;font-family:var(--font);}
+  .panel-head .score.neutral{color:var(--muted);}
   .status-score,.status-label{transition:color .15s;}
   .bars{display:flex;gap:3px;height:34px;}
   .bar{flex:1;border-radius:999px;min-width:0;cursor:crosshair;transition:transform .12s ease,opacity .12s;}
   .bar.ok{background:var(--ok);} .bar.warn{background:var(--warn);} .bar.crit{background:var(--crit);}
+  .bar.empty{background:var(--empty);cursor:default;}
+  .bar.empty:hover,.bar.empty.on{transform:none;opacity:1;}
   .bar:hover,.bar.on{transform:scaleY(1.12);opacity:.88;}
   .bar-axis{display:flex;justify-content:space-between;margin-top:10px;font-size:13px;color:var(--muted);}
   .uptime-note{margin-top:10px;font-size:11px;color:var(--muted);line-height:1.7;letter-spacing:.01em;user-select:none;display:flex;flex-direction:column;gap:2px;}
@@ -69,8 +73,10 @@
   .bar-tip .time{font-size:13px;color:var(--muted);margin-bottom:10px;}
   .bar-tip .status-row{display:flex;align-items:center;gap:8px;margin-bottom:14px;}
   .bar-tip .status-dot{width:10px;height:10px;border-radius:999px;flex-shrink:0;}
-  .bar-tip .status-dot.ok{background:var(--ok);} .bar-tip .status-dot.warn{background:var(--warn);} .bar-tip .status-dot.crit{background:var(--crit);}
+  .bar-tip .status-dot.ok{background:var(--ok);} .bar-tip .status-dot.warn{background:var(--warn);} .bar-tip .status-dot.crit{background:var(--crit);} .bar-tip .status-dot.empty{background:var(--empty);}
   .bar-tip .status-label{font-size:14px;font-weight:600;}
+  .bar-tip .status-label.neutral{color:var(--muted);}
+  .bar-tip .status-score.neutral{color:var(--muted);}
   .bar-tip .status-score{margin-left:auto;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums;font-family:var(--font);}
   .bar-tip .metrics{display:flex;flex-direction:column;gap:8px;padding-top:12px;border-top:1px solid var(--border);margin-bottom:14px;}
   .bar-tip .metric-row{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:13px;}
@@ -148,6 +154,7 @@
         <span class="legend-item"><span class="swatch" style="background:var(--ok)"></span>Healthy</span>
         <span class="legend-item"><span class="swatch" style="background:var(--warn)"></span>Degraded</span>
         <span class="legend-item"><span class="swatch" style="background:var(--crit)"></span>Critical</span>
+        <span class="legend-item"><span class="swatch" style="background:var(--empty)"></span>No data</span>
       </div>
     </div>
   </section>
@@ -157,9 +164,15 @@
     <div class="stat" id="statGpu">GPU —</div>
     <div class="stat" id="statRam">RAM —</div>
     <div class="stat color-rule">
-      <span class="group-label">Usage</span><span class="c ok">&lt;70%</span><span class="c warn">70–90%</span><span class="c crit">≥90%</span><span class="divider">·</span>
-      <span class="group-label">Memory</span><span class="c ok">&lt;80%</span><span class="c warn">80–90%</span><span class="c crit">≥90%</span><span class="divider">·</span>
-      <span class="group-label">Temp</span><span class="c ok">&lt;75°C</span><span class="c warn">75–85°C</span><span class="c crit">≥85°C</span>
+      <span class="group-label">CPU</span><span class="c ok">&lt;70%</span><span class="c warn">70–90%</span><span class="c crit">≥90%</span><span class="divider">·</span>
+      <span class="c ok">&lt;75°C</span><span class="c warn">75–85°C</span><span class="c crit">≥85°C</span>
+    </div>
+    <div class="stat color-rule">
+      <span class="group-label">GPU</span><span class="c ok">&lt;70%</span><span class="c warn">70–90%</span><span class="c crit">≥90%</span><span class="divider">·</span>
+      <span class="c ok">&lt;75°C</span><span class="c warn">75–85°C</span><span class="c crit">≥85°C</span>
+    </div>
+    <div class="stat color-rule">
+      <span class="group-label">RAM</span><span class="c ok">&lt;80%</span><span class="c warn">80–90%</span><span class="c crit">≥90%</span>
     </div>
   </div>
 
@@ -177,7 +190,7 @@ const $ = id => document.getElementById(id);
 const BUCKET_COUNTS = { 900: 15, 3600: 60, 86400: 24, 604800: 7 };
 function bucketCount(sec){ return BUCKET_COUNTS[sec] || 60; }
 const AXIS_LABELS = { 900:"15 min", 3600:"1 hour", 86400:"24 hours", 604800:"7 days" };
-const ST = { ok:{label:"Healthy"}, warn:{label:"Degraded"}, crit:{label:"Critical"} };
+const ST = { ok:{label:"Healthy"}, warn:{label:"Degraded"}, crit:{label:"Critical"}, empty:{label:"No data"} };
 
 // ---- native 状态 ----
 let tempCpuOn = false, tempGpuOn = false;
@@ -218,19 +231,34 @@ function onLive(d){
   $("liveRamSub").className = "sub " + sevCls(sevRam(d.ram));
 }
 
+function barLevelClass(b){
+  if (b.empty) return "empty";
+  return ["ok","warn","crit"][b.level];
+}
+function barLevelKey(b){
+  if (b.empty) return "empty";
+  return ["ok","warn","crit"][b.level];
+}
+
 // ---- Uptime 条 ----
 function renderBars(buckets, axisL){
   const bars = $("bars"); bars.innerHTML = "";
   currentBuckets = buckets;
   buckets.forEach((b,i)=>{
     const el = document.createElement("div");
-    el.className = "bar " + ["ok","warn","crit"][b.level];
+    el.className = "bar " + barLevelClass(b);
     el.dataset.i = i; bars.appendChild(el);
   });
-  const okRatio = buckets.filter(b=>b.level===0).length / buckets.length * 100;
+  const withData = buckets.filter(b => !b.empty);
   const score = $("healthScore");
-  score.textContent = okRatio.toFixed(1)+"%";
-  score.className = "score " + sevCls(uptimeLevel(okRatio));
+  if (!withData.length) {
+    score.textContent = "—";
+    score.className = "score neutral";
+  } else {
+    const okRatio = withData.filter(b => b.level === 0).length / withData.length * 100;
+    score.textContent = okRatio.toFixed(1)+"%";
+    score.className = "score " + sevCls(uptimeLevel(okRatio));
+  }
   $("axisL").textContent = axisL + " ago";
   $("footInfo").textContent = buckets.length+" buckets · "+(tempCpuOn?"CPU temp on":"CPU temp off")+(tempGpuOn?" / GPU temp on":" / GPU temp off");
 }
@@ -263,7 +291,8 @@ barsEl.addEventListener("mousemove", e => {
   barsEl.querySelectorAll(".bar").forEach(b=>b.classList.remove("on"));
   bar.classList.add("on");
   const b = currentBuckets[+bar.dataset.i]; if(!b) return;
-  const st = ST[["ok","warn","crit"][b.level]];
+  const lk = barLevelKey(b);
+  const st = ST[lk];
   const i = +bar.dataset.i, n = currentBuckets.length;
   const frac = 1 - i / n;
   let btTime = "Now";
@@ -278,13 +307,22 @@ barsEl.addEventListener("mousemove", e => {
     if (mins > 0) btTime = mins + " min ago";
   }
   $("btTime").textContent = btTime;
-  const dot = $("btDot"); dot.className = "status-dot " + ["ok","warn","crit"][b.level];
-  $("btLabel").textContent = st.label; $("btLabel").className = "status-label " + sevCls(b.level);
-  const bs = $("btScore"); bs.textContent = Math.round(b.score)+"%"; bs.className = "status-score " + sevCls(b.level);
-  setPills("btCpuVals", [ pill(fmtPct(b.cpuA)+" avg", sevPct(b.cpuA)), tempCpuOn?pill(fmtTemp(b.cpuTA)+" avg", sevTemp(b.cpuTA)):pill("Temp unavailable","neutral") ]);
-  setPills("btGpuVals", [ pill(fmtPct(b.gpuA)+" avg", sevPct(b.gpuA)), tempGpuOn?pill(fmtTemp(b.gpuTA)+" avg", sevTemp(b.gpuTA)):pill("Temp unavailable","neutral") ]);
-  setPills("btRamVals", [ pill(fmtPct(b.ramA)+" avg", sevRam(b.ramA)) ]);
-  setPills("btNetVals", [ pill(fmtDn(b.dnA)+" dl","ok"), pill(fmtUp(b.upA),"neutral") ]);
+  const dot = $("btDot"); dot.className = "status-dot " + lk;
+  $("btLabel").textContent = st.label; $("btLabel").className = "status-label " + (b.empty ? "neutral" : sevCls(b.level));
+  const bs = $("btScore");
+  if (b.empty) {
+    bs.textContent = "—"; bs.className = "status-score neutral";
+    setPills("btCpuVals", [pill("No samples","neutral")]);
+    setPills("btGpuVals", [pill("No samples","neutral")]);
+    setPills("btRamVals", [pill("No samples","neutral")]);
+    setPills("btNetVals", [pill("No samples","neutral")]);
+  } else {
+    bs.textContent = Math.round(b.score)+"%"; bs.className = "status-score " + sevCls(b.level);
+    setPills("btCpuVals", [ pill(fmtPct(b.cpuA)+" avg", sevPct(b.cpuA)), tempCpuOn?pill(fmtTemp(b.cpuTA)+" avg", sevTemp(b.cpuTA)):pill("Temp unavailable","neutral") ]);
+    setPills("btGpuVals", [ pill(fmtPct(b.gpuA)+" avg", sevPct(b.gpuA)), tempGpuOn?pill(fmtTemp(b.gpuTA)+" avg", sevTemp(b.gpuTA)):pill("Temp unavailable","neutral") ]);
+    setPills("btRamVals", [ pill(fmtPct(b.ramA)+" avg", sevRam(b.ramA)) ]);
+    setPills("btNetVals", [ pill(fmtDn(b.dnA)+" dl","ok"), pill(fmtUp(b.upA),"neutral") ]);
+  }
   barTip.classList.add("show");
   const hr = healthPanel.getBoundingClientRect(), br = bar.getBoundingClientRect();
   let left = br.left - hr.left + br.width/2 - (barTip.offsetWidth||220)/2;
