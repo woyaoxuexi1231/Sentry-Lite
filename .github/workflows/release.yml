@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Existing tag to build and publish (e.g. v1.0.0)"
+        description: "Existing tag to build and publish (e.g. v1.2.0)"
         required: true
         type: string
 
@@ -57,18 +57,59 @@ jobs:
       - name: Package
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          $ErrorActionPreference = "Stop"
           $ver = "${{ steps.ver.outputs.version }}"
-          New-Item -ItemType Directory -Force -Path dist/Sentry-Lite-$ver-x64 | Out-Null
-          Copy-Item "build/Sentry-Lite.exe" "dist/Sentry-Lite-$ver-x64/Sentry-Lite.exe"
-          Copy-Item "build/Sentry-Lite-lhm.dll" "dist/Sentry-Lite-$ver-x64/" -ErrorAction SilentlyContinue
-          Copy-Item "build/Sentry-Lite-lhm.runtimeconfig.json" "dist/Sentry-Lite-$ver-x64/" -ErrorAction SilentlyContinue
-          Copy-Item "build/Sentry-Lite-lhm.deps.json" "dist/Sentry-Lite-$ver-x64/" -ErrorAction SilentlyContinue
-          Copy-Item "build/LibreHardwareMonitorLib.dll" "dist/Sentry-Lite-$ver-x64/" -ErrorAction SilentlyContinue
-          Copy-Item "build/HidSharp.dll" "dist/Sentry-Lite-$ver-x64/" -ErrorAction SilentlyContinue
-          Copy-Item "build/*.dll" "dist/Sentry-Lite-$ver-x64/" -ErrorAction SilentlyContinue
-          if (Test-Path "build/web") { Copy-Item -Recurse "build/web" "dist/Sentry-Lite-$ver-x64/web" }
-          Compress-Archive -Path "dist/Sentry-Lite-$ver-x64" -DestinationPath "dist/Sentry-Lite-$ver-x64.zip"
+          $root = "dist/Sentry-Lite-$ver-x64"
+          New-Item -ItemType Directory -Force -Path $root | Out-Null
+
+          # Locate build outputs (Ninja -> build/, VS multi-config -> build/Release)
+          $bin = if (Test-Path "build/Sentry-Lite.exe") { "build" }
+                 elseif (Test-Path "build/Release/Sentry-Lite.exe") { "build/Release" }
+                 else { throw "Sentry-Lite.exe not found under build/" }
+
+          Copy-Item "$bin/Sentry-Lite.exe" "$root/Sentry-Lite.exe"
+
+          # LHM bridge + runtimeconfig/deps
+          foreach ($f in @(
+            "Sentry-Lite-lhm.dll",
+            "Sentry-Lite-lhm.runtimeconfig.json",
+            "Sentry-Lite-lhm.deps.json"
+          )) {
+            if (Test-Path "$bin/$f") { Copy-Item "$bin/$f" "$root/" }
+          }
+
+          # Managed deps next to the exe (framework-dependent)
+          Get-ChildItem "$bin" -Filter "*.dll" -File | ForEach-Object {
+            Copy-Item $_.FullName "$root/" -Force
+          }
+
+          # Prefer Windows RID AccessControl (avoids MutexAccessRule null-identity crash)
+          $winAc = "$bin/runtimes/win/lib/net8.0/System.Threading.AccessControl.dll"
+          if (Test-Path $winAc) {
+            Copy-Item $winAc "$root/System.Threading.AccessControl.dll" -Force
+          }
+
+          if (Test-Path "$bin/web") {
+            Copy-Item -Recurse "$bin/web" "$root/web"
+          }
+
+          # Required files check
+          foreach ($need in @("Sentry-Lite.exe", "Sentry-Lite-lhm.dll", "Sentry-Lite-lhm.runtimeconfig.json", "web/dashboard.html")) {
+            if (-not (Test-Path "$root/$need")) { throw "Missing required package file: $need" }
+          }
+
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          $zip = "dist/Sentry-Lite-$ver-x64.zip"
+          if (Test-Path $zip) { Remove-Item $zip -Force }
+          Compress-Archive -Path $root -DestinationPath $zip -Force
+
+          # Standalone exe asset (same binary as inside the zip)
+          Copy-Item "$root/Sentry-Lite.exe" "dist/Sentry-Lite-$ver-x64.exe" -Force
+
+          # Only upload zip + exe (not the unpacked folder)
+          Remove-Item $root -Recurse -Force
+
+          Get-ChildItem dist | Format-Table Name, Length
 
       - name: Resolve release notes
         id: notes
@@ -86,7 +127,9 @@ jobs:
           tag_name: ${{ steps.ver.outputs.tag }}
           name: Sentry-Lite ${{ steps.ver.outputs.version }}
           body_path: ${{ steps.notes.outputs.body_path }}
-          files: dist/*
+          files: |
+            dist/Sentry-Lite-*.zip
+            dist/Sentry-Lite-*.exe
           draft: false
           prerelease: false
           fail_on_unmatched_files: true
@@ -98,7 +141,9 @@ jobs:
           tag_name: ${{ steps.ver.outputs.tag }}
           name: Sentry-Lite ${{ steps.ver.outputs.version }}
           generate_release_notes: true
-          files: dist/*
+          files: |
+            dist/Sentry-Lite-*.zip
+            dist/Sentry-Lite-*.exe
           draft: false
           prerelease: false
           fail_on_unmatched_files: true
