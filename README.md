@@ -10,7 +10,7 @@
 - 实时卡片：CPU/GPU 占用 + 温度、内存、上下行网速，语义色分级
 - **Uptime 时段健康条**：所选区间逐段健康分 + 悬停明细
 - **历史查看（并入仪表盘）**：15m/1h/6h/24h/7d 区间切换、区间统计
-- **温度（可选）**：`PawnIO`（Intel/AMD CPU）+ 动态加载 `nvml.dll`（NVIDIA GPU）；**未安装 PawnIO 则温度显示「—」，其余照常**
+- **温度（可选）**：CPU 与 [LiteMonitor](https://github.com/Diorser/LiteMonitor) 相同，经 `LibreHardwareMonitorLib 0.9.6` 读取；GPU 仍用 `nvml.dll`（NVIDIA）
 - **系统托盘**：显示/隐藏、打开历史文件夹、**完全退出走托盘右键菜单**
 - 历史数据每秒写入 `raw-YYYYMMDD.hwdb`（自定义二进制格式），保留策略自动管理
 - 无 CSV 导出、无网络行为、静态链接 CRT、无额外运行时依赖（需系统已装 WebView2 Runtime，Win11 自带）
@@ -25,12 +25,14 @@ cmake --build build --config Release
 产物：
 
 - `build/Release/Sentry-Lite.exe` — 主程序（Visual Studio）或 `build/Sentry-Lite.exe`（Ninja）
+- `build/.../Sentry-Lite-lhm.dll` — CPU 温度模块（与 LiteMonitor 同款 LHM 0.9.6，由主进程内嵌加载，构建时 `dotnet publish` 自动输出）
 - `build/.../web/` — 内嵌仪表盘 HTML（构建时自动复制，随 exe 一起分发）
-- `build/.../pawnio/` — CPU 温度模块（`IntelMSR.bin` + `AMDFamily17.bin`，构建时自动复制）
+
+需要 **.NET 8 Desktop Runtime**（与 LiteMonitor 相同；Win11 通常已带）。
 
 ## 发布（GitHub Actions 自动）
 
-推送版本标签后，GitHub Actions 自动编译并把 `Sentry-Lite.exe` + `web/` + `pawnio/` 打包成 zip Release：
+推送版本标签后，GitHub Actions 自动编译并把 `Sentry-Lite.exe` + `Sentry-Lite-lhm*` + `web/` 打包成 zip Release：
 
 ```powershell
 git tag v1.1.0
@@ -41,12 +43,12 @@ git push origin v1.1.0
 
 ## 温度监控
 
-1. 安装 [PawnIO](https://pawnio.eu) 驱动（若需 CPU 温度）
-2. **发布包已自带** `pawnio/IntelMSR.bin`（Intel）和 `pawnio/AMDFamily17.bin`（AMD），程序按 CPU 厂商自动选用，**用户无需再手动下载模块**
-3. 未安装 PawnIO / NVIDIA 显卡无 NVML 时，对应温度列显示「—」，其余指标正常
-4. CPU 温度依赖 PawnIO 驱动；默认仅管理员可打开设备句柄（与 LiteMonitor / LHM 相同）。普通用户若读不到温度，可右键「以管理员身份运行」，或接受 CPU 温度显示「—」
+1. **CPU 温度**：与 LiteMonitor 相同，依赖 [PawnIO](https://pawnio.eu) 驱动 + 内置 `LibreHardwareMonitorLib 0.9.6`（`Sentry-Lite-lhm.dll` 进程内加载）
+2. **GPU 温度**：NVIDIA 显卡需系统有 `nvml.dll`；AMD/Intel 集显暂无温度
+3. 驱动或 LHM 读不到时，对应温度列显示「—」，其余指标正常
+4. LHM 与 LiteMonitor 相同：进程内加载、`requireAdministrator` manifest（PawnIO 设备 ACL）、WinForms STA、同款初始化
 
-PawnIO 模块来自 [PawnIO.Modules](https://github.com/namazso/PawnIO.Modules)（LGPL-2.1），见 `third_party/pawnio-modules/COPYING`。
+PawnIO 由 LHM 内部使用；模块 blob 随 LibreHardwareMonitorLib 嵌入，**无需**再手动放置 `pawnio/*.bin`。
 
 ## 数据目录
 

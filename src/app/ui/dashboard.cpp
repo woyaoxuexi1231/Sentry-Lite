@@ -24,6 +24,7 @@ constexpr wchar_t kClassName[] = L"SentryLite_dashboard";
 constexpr wchar_t kAppTitle[] = L"Sentry-Lite";
 constexpr UINT kMsgTray  = WM_APP + 1;
 constexpr UINT kMsgHisto = WM_APP + 2;
+constexpr UINT kMsgInitTemp = WM_APP + 3;
 constexpr UINT kTimerSample = 1;
 constexpr UINT kTrayId = 1;
 
@@ -32,7 +33,7 @@ constexpr int kMenuOpenHistory = 4002;
 constexpr int kMenuExit = 4099;
 
 inline uint8_t TempToSentinel(float c) {
-    return (std::isfinite(c) && c >= 0.f && c <= 200.f) ? static_cast<uint8_t>(c + 0.5f) : kSentinel;
+    return (std::isfinite(c) && c >= 0.f && c <= 125.f) ? static_cast<uint8_t>(c + 0.5f) : kSentinel;
 }
 
 std::wstring ExeDir() {
@@ -65,6 +66,10 @@ ComPtr<ICoreWebView2>            g_web;
 
 std::wstring Num1(float v) { wchar_t b[24]; swprintf_s(b, L"%.1f", v); return b; }
 std::wstring Num0(float v) { wchar_t b[24]; swprintf_s(b, L"%.0f", v); return b; }
+
+inline std::wstring TempJson(uint8_t t) {
+    return t != kSentinel ? Num1((float)t) : L"-1";
+}
 
 HICON LoadAppIconSize(HINSTANCE inst, int cx, int cy) {
     // LoadImage picks the best match from the multi-size .ico (no comctl32 v6 import)
@@ -130,7 +135,7 @@ void Dashboard::PushJson(const std::wstring& json) {
 
 void Dashboard::PushInit() {
     std::wstring json = std::wstring(L"{\"t\":\"init\"") +
-        L",\"cpuTOk\":" + (pub_cpu_t_ ? L"true" : L"false") +
+        L",\"cpuTOk\":" + (cpu_temp_ok_ ? L"true" : L"false") +
         L",\"gpuTOk\":" + (pub_gpu_t_ ? L"true" : L"false") +
         L",\"cpuTMsg\":\"" + EscapeJson(temp_cpu_msg_) + L"\"" +
         L",\"gpuTMsg\":\"" + EscapeJson(temp_gpu_msg_) + L"\"}";
@@ -144,7 +149,7 @@ Dashboard::~Dashboard() {
     }
     recorder_.Shutdown();
     if (g_ctrl) g_ctrl->Close();
-    temp_pio_.Close();
+    temp_cpu_.Shutdown();
     temp_gpu_.Shutdown();
 }
 
@@ -163,33 +168,40 @@ bool Dashboard::Init() {
     if (config_.nic != L"auto") nic = (unsigned long)_wtoi(config_.nic.c_str());
     net_.SetNicIndex(nic);
     gpu_.Init();
-    InitTemperature();
 
     MEMORYSTATUSEX ms{sizeof(ms)};
     if (GlobalMemoryStatusEx(&ms)) ram_total_bytes_ = ms.ullTotalPhys;
 
+    // Show UI immediately — LHM Open must not run before the window exists.
     if (!CreateWindow_()) return false;
+    ShowWindow(hwnd_, SW_SHOW);
     AddTrayIcon();
     InitMenu();
-
-    // 每秒采集 + 落盘 + 推 live
     SetTimer(hwnd_, kTimerSample, 1000u, nullptr);
 
     if (!InitWebView())
         SetWindowTextW(hwnd_, L"Sentry-Lite (WebView2 Runtime or web folder missing)");
+
+    // Defer CPU/GPU temp init until after the first paint / message pump.
+    PostMessageW(hwnd_, kMsgInitTemp, 0, 0);
     return true;
 }
 
 void Dashboard::InitTemperature() {
-    std::wstring err;
-    if (temp_pio_.Open(err)) {
-        if (temp_cpu_.Init(temp_pio_, err)) pub_cpu_t_ = true;
-        else temp_cpu_msg_ = err;
-    } else {
-        temp_cpu_msg_ = err.empty() ? L"PawnIO not installed" : err;
+    if (!pub_cpu_t_) {
+        std::wstring err;
+        if (temp_cpu_.Init(err)) {
+            pub_cpu_t_ = true;
+            temp_cpu_msg_.clear();
+        } else {
+            temp_cpu_msg_ = err.empty() ? L"CPU temperature unavailable" : err;
+        }
     }
-    if (temp_gpu_.Init()) pub_gpu_t_ = true;
-    else temp_gpu_msg_ = L"No NVIDIA GPU detected";
+
+    if (!pub_gpu_t_) {
+        if (temp_gpu_.Init()) pub_gpu_t_ = true;
+        else temp_gpu_msg_ = L"No NVIDIA GPU detected";
+    }
 }
 
 bool Dashboard::CreateWindow_() {
@@ -326,6 +338,10 @@ LRESULT Dashboard::HandleMsg(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     case kMsgHisto:
         OnHistoDone();
         return 0;
+    case kMsgInitTemp:
+        InitTemperature();
+        if (web_ready_) PushInit();
+        return 0;
     case WM_CLOSE:
         if (quitting_) DestroyWindow(hwnd_);
         else ShowWindow(hwnd_, SW_HIDE);   // 关闭按钮 → 隐藏到托盘
@@ -414,14 +430,42 @@ bool Dashboard::CollectSnapshot(Snapshot& snap) {
     snap.ram_pct = mem_.Tick();
     float up = 0.f, dn = 0.f;
     if (net_.Tick(up, dn)) { snap.net_up_bps = up; snap.net_down_bps = dn; }
-    snap.cpu_temp_c = pub_cpu_t_ ? TempToSentinel(temp_cpu_.ReadC()) : kSentinel;
+
+    float cpuT = NAN;
+    if (pub_cpu_t_) {
+        if (!temp_cpu_.BridgeAlive()) {
+            pub_cpu_t_ = false;
+            cpu_temp_ok_ = false;
+            temp_cpu_msg_ = L"CPU temperature module unavailable";
+        } else {
+            cpuT = temp_cpu_.ReadC();
+            if (std::isfinite(cpuT)) {
+                cpu_temp_ok_ = true;
+                temp_cpu_msg_.clear();
+            } else {
+                const std::wstring msg = temp_cpu_.LastMessage();
+                if (!msg.empty()) temp_cpu_msg_ = msg;
+            }
+        }
+    }
+    snap.cpu_temp_c = pub_cpu_t_ ? TempToSentinel(cpuT) : kSentinel;
     snap.gpu_temp_c = pub_gpu_t_ ? TempToSentinel(temp_gpu_.ReadC()) : kSentinel;
     return true;
 }
 
 void Dashboard::OnTick() {
+    const bool cpuOkBefore = cpu_temp_ok_;
+    if (!pub_cpu_t_) {
+        if (++temp_retry_sec_ >= 30u) {
+            temp_retry_sec_ = 0;
+            InitTemperature();
+            if (pub_cpu_t_ && web_ready_) PushInit();
+        }
+    }
+
     Snapshot snap;
     CollectSnapshot(snap);
+    if (cpu_temp_ok_ && !cpuOkBefore && web_ready_) PushInit();
 
     time_t now = time(nullptr);
     recorder_.Record(snap, (uint64_t)now);
@@ -444,8 +488,8 @@ void Dashboard::OnTick() {
     std::wstring json;
     json = L"{\"t\":\"live\"";
     json += L",\"cpu\":" + Num0((float)cpu) + L",\"gpu\":" + Num0((float)gpu) + L",\"ram\":" + Num0((float)ram);
-    json += L",\"cpuT\":" + (pub_cpu_t_ ? Num1((float)snap.cpu_temp_c) : L"-1");
-    json += L",\"gpuT\":" + (pub_gpu_t_ ? Num1(snap.gpu_temp_c) : L"-1");
+    json += L",\"cpuT\":" + (pub_cpu_t_ ? TempJson(snap.cpu_temp_c) : L"-1");
+    json += L",\"gpuT\":" + (pub_gpu_t_ ? TempJson(snap.gpu_temp_c) : L"-1");
     json += L",\"up\":" + Num0(snap.net_up_bps) + L",\"dn\":" + Num0(snap.net_down_bps);
     json += L",\"ramUsed\":";
     json += (used >= 0) ? std::to_wstring((long long)used) : L"-1";

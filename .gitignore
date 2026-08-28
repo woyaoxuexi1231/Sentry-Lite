@@ -38,11 +38,16 @@ install_manifest.txt
 # WebView2 user-data folder created next to the exe
 *.exe.WebView2/
 
+# .NET bridge build outputs
+tools/**/bin/
+tools/**/obj/
+
 # Node tooling under scripts/ (puppeteer measure helpers, etc.)
 node_modules/
 package-lock.json
 scripts/package.json
 scripts/measure-layout.mjs
+scripts/probe-fit.mjs
 
 # Unused / local-only web assets (dashboard loads Inter from Google Fonts)
 src/app/web/fonts/

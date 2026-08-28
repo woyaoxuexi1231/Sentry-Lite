@@ -20,8 +20,7 @@ add_executable(Sentry-Lite WIN32
     src/app/history/store.cpp
     src/app/history/retention.cpp
     src/app/history/query.cpp
-    src/app/temp/pawnio_client.cpp
-    src/app/temp/temp_cpu.cpp
+    src/app/temp/temp_cpu_lhm.cpp
     src/app/temp/temp_gpu_nvml.cpp
     src/app/ui/dashboard.cpp
     resources/app.rc
@@ -40,7 +39,10 @@ target_compile_definitions(Sentry-Lite PRIVATE
 )
 
 target_compile_options(Sentry-Lite PRIVATE /O2 /W4 /permissive- /utf-8 /GS /Zi)
-target_link_options(Sentry-Lite PRIVATE /OPT:REF /OPT:ICF /DEBUG /SUBSYSTEM:WINDOWS)
+target_link_options(Sentry-Lite PRIVATE
+    /OPT:REF /OPT:ICF /DEBUG /SUBSYSTEM:WINDOWS
+    "/MANIFESTUAC:level='requireAdministrator' uiAccess='false'"
+)
 
 set_property(TARGET Sentry-Lite PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded")
 
@@ -63,7 +65,16 @@ set_source_files_properties(resources/app.rc PROPERTIES
 add_custom_command(TARGET Sentry-Lite POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
             "${CMAKE_SOURCE_DIR}/src/app/web" "$<TARGET_FILE_DIR:Sentry-Lite>/web"
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-            "${CMAKE_SOURCE_DIR}/third_party/pawnio-modules" "$<TARGET_FILE_DIR:Sentry-Lite>/pawnio"
     VERBATIM
 )
+
+find_program(DOTNET_EXECUTABLE dotnet)
+if(DOTNET_EXECUTABLE)
+    add_custom_command(TARGET Sentry-Lite POST_BUILD
+        COMMAND ${DOTNET_EXECUTABLE} publish "${CMAKE_SOURCE_DIR}/tools/lhm-bridge/Sentry-Lite-lhm.csproj"
+                -c $<IF:$<CONFIG:Debug>,Debug,Release> -r win-x64 --self-contained false
+                -o "$<TARGET_FILE_DIR:Sentry-Lite>"
+        COMMENT "Publishing Sentry-Lite-lhm (LibreHardwareMonitorLib 0.9.6)"
+        VERBATIM
+    )
+endif()

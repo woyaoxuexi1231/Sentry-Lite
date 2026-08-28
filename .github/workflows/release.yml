@@ -43,6 +43,11 @@ jobs:
         with:
           arch: x64
 
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
       - name: Configure
         run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 
@@ -56,8 +61,13 @@ jobs:
           $ver = "${{ steps.ver.outputs.version }}"
           New-Item -ItemType Directory -Force -Path dist/Sentry-Lite-$ver-x64 | Out-Null
           Copy-Item "build/Sentry-Lite.exe" "dist/Sentry-Lite-$ver-x64/Sentry-Lite.exe"
+          Copy-Item "build/Sentry-Lite-lhm.dll" "dist/Sentry-Lite-$ver-x64/" -ErrorAction SilentlyContinue
+          Copy-Item "build/Sentry-Lite-lhm.runtimeconfig.json" "dist/Sentry-Lite-$ver-x64/" -ErrorAction SilentlyContinue
+          Copy-Item "build/Sentry-Lite-lhm.deps.json" "dist/Sentry-Lite-$ver-x64/" -ErrorAction SilentlyContinue
+          Copy-Item "build/LibreHardwareMonitorLib.dll" "dist/Sentry-Lite-$ver-x64/" -ErrorAction SilentlyContinue
+          Copy-Item "build/HidSharp.dll" "dist/Sentry-Lite-$ver-x64/" -ErrorAction SilentlyContinue
+          Copy-Item "build/*.dll" "dist/Sentry-Lite-$ver-x64/" -ErrorAction SilentlyContinue
           if (Test-Path "build/web") { Copy-Item -Recurse "build/web" "dist/Sentry-Lite-$ver-x64/web" }
-          if (Test-Path "build/pawnio") { Copy-Item -Recurse "build/pawnio" "dist/Sentry-Lite-$ver-x64/pawnio" }
           Compress-Archive -Path "dist/Sentry-Lite-$ver-x64" -DestinationPath "dist/Sentry-Lite-$ver-x64.zip"
 
       - name: Resolve release notes

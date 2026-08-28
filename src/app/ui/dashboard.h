@@ -13,8 +13,7 @@
 #include "collectors/mem_usage.h"
 #include "collectors/gpu_usage.h"
 #include "collectors/net_speed.h"
-#include "temp/pawnio_client.h"
-#include "temp/temp_cpu.h"
+#include "temp/temp_cpu_lhm.h"
 #include "temp/temp_gpu_nvml.h"
 #include "history/recorder.h"
 #include "history/retention.h"
@@ -69,14 +68,15 @@ private:
     Retention retention_;
     std::wstring history_dir_;
 
-    // 温度
-    PawnIoClient temp_pio_;
+    // 温度（CPU 经 LiteMonitor 同款 LHM 桥接进程）
     CpuTempReader temp_cpu_;
     GpuTempNvml temp_gpu_;
-    bool pub_cpu_t_ = false;       // 是否对外发布 CPU 温度
+    bool pub_cpu_t_ = false;       // LHM 桥接进程已启动
+    bool cpu_temp_ok_ = false;     // 已读到有效 CPU 温度
     bool pub_gpu_t_ = false;
     std::wstring temp_cpu_msg_;
     std::wstring temp_gpu_msg_;
+    uint32_t temp_retry_sec_ = 0;  // 温度初始化失败后每 30s 重试
     uint64_t ram_total_bytes_ = 0;
 
     HWND hwnd_ = nullptr;
