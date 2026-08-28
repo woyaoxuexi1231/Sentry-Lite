@@ -57,6 +57,7 @@ jobs:
           New-Item -ItemType Directory -Force -Path dist/Sentry-Lite-$ver-x64 | Out-Null
           Copy-Item "build/Sentry-Lite.exe" "dist/Sentry-Lite-$ver-x64/Sentry-Lite.exe"
           if (Test-Path "build/web") { Copy-Item -Recurse "build/web" "dist/Sentry-Lite-$ver-x64/web" }
+          if (Test-Path "build/pawnio") { Copy-Item -Recurse "build/pawnio" "dist/Sentry-Lite-$ver-x64/pawnio" }
           Compress-Archive -Path "dist/Sentry-Lite-$ver-x64" -DestinationPath "dist/Sentry-Lite-$ver-x64.zip"
 
       - name: Resolve release notes

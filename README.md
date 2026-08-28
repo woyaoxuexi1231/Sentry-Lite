@@ -24,12 +24,13 @@ cmake --build build --config Release
 
 产物：
 
-- `build/Release/Sentry-Lite.exe` — 主程序
-- `build/Release/web/` — 内嵌仪表盘 HTML（构建时自动从 `src/app/web` 复制，随 exe 一起分发）
+- `build/Release/Sentry-Lite.exe` — 主程序（Visual Studio）或 `build/Sentry-Lite.exe`（Ninja）
+- `build/.../web/` — 内嵌仪表盘 HTML（构建时自动复制，随 exe 一起分发）
+- `build/.../pawnio/` — CPU 温度模块（`IntelMSR.bin` + `AMDFamily17.bin`，构建时自动复制）
 
 ## 发布（GitHub Actions 自动）
 
-推送版本标签后，GitHub Actions 自动编译并把 `Sentry-Lite.exe` + `web/` 打包成 zip Release：
+推送版本标签后，GitHub Actions 自动编译并把 `Sentry-Lite.exe` + `web/` + `pawnio/` 打包成 zip Release：
 
 ```powershell
 git tag v1.1.0
@@ -41,9 +42,11 @@ git push origin v1.1.0
 ## 温度监控
 
 1. 安装 [PawnIO](https://pawnio.eu) 驱动（若需 CPU 温度）
-2. 将官方模块 blob（`IntelMSR.bin` / `AMDFamily17.bin`）放到 `C:\Program Files\PawnIO\` 或 exe 同目录
+2. **发布包已自带** `pawnio/IntelMSR.bin`（Intel）和 `pawnio/AMDFamily17.bin`（AMD），程序按 CPU 厂商自动选用，**用户无需再手动下载模块**
 3. 未安装 PawnIO / NVIDIA 显卡无 NVML 时，对应温度列显示「—」，其余指标正常
-4. 无需管理员权限，无需安装服务
+4. CPU 温度依赖 PawnIO 驱动；默认仅管理员可打开设备句柄（与 LiteMonitor / LHM 相同）。PawnIO **2.2.0** 安装程序可选允许普通用户访问；否则需以管理员运行本程序，或接受 CPU 温度显示「—」
+
+PawnIO 模块来自 [PawnIO.Modules](https://github.com/namazso/PawnIO.Modules)（LGPL-2.1），见 `third_party/pawnio-modules/COPYING`。
 
 ## 数据目录
 
@@ -54,6 +57,8 @@ git push origin v1.1.0
 ## 许可证
 
 MIT — 见 [LICENSE](LICENSE)
+
+第三方：`third_party/pawnio-modules/` 中的 PawnIO 模块 blob 遵循 LGPL-2.1（见该目录下 `COPYING`）。
 
 ## 仓库
 

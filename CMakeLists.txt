@@ -63,5 +63,7 @@ set_source_files_properties(resources/app.rc PROPERTIES
 add_custom_command(TARGET Sentry-Lite POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
             "${CMAKE_SOURCE_DIR}/src/app/web" "$<TARGET_FILE_DIR:Sentry-Lite>/web"
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${CMAKE_SOURCE_DIR}/third_party/pawnio-modules" "$<TARGET_FILE_DIR:Sentry-Lite>/pawnio"
     VERBATIM
 )

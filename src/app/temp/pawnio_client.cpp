@@ -46,6 +46,8 @@ std::wstring PawnIoClient::FindDll() {
 }
 
 std::wstring PawnIoClient::FindBlob(const wchar_t* name) {
+    const std::wstring bundled = ExeDir() + L"pawnio\\" + name;
+    if (FileExists(bundled)) return bundled;
     const std::wstring exe = ExeDir() + name;
     if (FileExists(exe)) return exe;
     const std::wstring pf = L"C:\\Program Files\\PawnIO\\" + std::wstring(name);
@@ -76,7 +78,11 @@ bool PawnIoClient::Open(std::wstring& err) {
     }
     long hr = fn_open_(&handle_);
     if (hr < 0 || !handle_) {
-        err = L"pawnio_open failed (admin rights and PawnIO driver required)";
+        if (static_cast<unsigned long>(hr) == 0x80070005u) {
+            err = L"PawnIO installed but access denied — run as Administrator, or allow non-admin access in PawnIO 2.2.0 setup";
+        } else {
+            err = L"pawnio_open failed (PawnIO driver required)";
+        }
         Close();
         return false;
     }
@@ -90,7 +96,7 @@ bool PawnIoClient::LoadModule(const wchar_t* blob_name, std::wstring& err) {
     }
     std::wstring path = FindBlob(blob_name);
     if (path.empty()) {
-        err = std::wstring(L"Module not found: ") + blob_name + L" (get from PawnIO.Modules Releases)";
+        err = std::wstring(L"Module not found: ") + blob_name + L" (expected in pawnio\\ next to exe)";
         return false;
     }
     std::vector<uint8_t> blob;
