@@ -2,15 +2,15 @@
 
 轻量 Windows 硬件监控仪表盘（WebView2 内嵌 UI）：CPU / GPU / 内存 / 网速 / 温度，1 秒采样并本地落盘。
 
-**当前版本：1.3.0**
+**当前版本：1.4.0**
 
 ## 功能
 
 - **便携包**：解压 zip 即用（`Sentry-Lite.exe` + LHM 模块 + `web/`）
-- WebView2 内嵌 HTML 仪表盘（界面见 `design/ui-mockup.html`）
+- WebView2 内嵌 HTML 仪表盘（界面见 `design/ui-mockup-v2.html`）
 - 实时卡片：CPU/GPU 占用 + 温度、内存、上下行网速，语义色分级
-- **Uptime 时段健康条**：所选区间逐段健康分 + 悬停明细
-- **历史查看（并入仪表盘）**：15m/1h/6h/24h/7d 区间切换、区间统计
+- **分指标健康条**：CPU / GPU / RAM 各自时段健康色条 + 健康占比；NET 时段流量柱 + ↓/↑ 总量
+- **历史查看（并入仪表盘）**：30m 实时窗 / Day 选日看 24h、区间统计
 - **温度（可选）**：CPU 与 [LiteMonitor](https://github.com/Diorser/LiteMonitor) 相同，经 `LibreHardwareMonitorLib 0.9.6` 读取；GPU 仍用 `nvml.dll`（NVIDIA）
 - **系统托盘**：显示/隐藏、打开历史文件夹、**完全退出走托盘右键菜单**
 - 历史数据每秒写入 `raw-YYYYMMDD.hwdb`（自定义二进制格式），保留策略自动管理
@@ -36,8 +36,8 @@ cmake --build build --config Release
 推送版本标签后，Actions 自动编译并发布 **zip（完整便携包）**：
 
 ```powershell
-git tag v1.3.0
-git push origin v1.3.0
+git tag v1.4.0
+git push origin v1.4.0
 ```
 
 Release 资产：
