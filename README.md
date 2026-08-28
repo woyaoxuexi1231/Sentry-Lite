@@ -44,7 +44,7 @@ git push origin v1.1.0
 1. 安装 [PawnIO](https://pawnio.eu) 驱动（若需 CPU 温度）
 2. **发布包已自带** `pawnio/IntelMSR.bin`（Intel）和 `pawnio/AMDFamily17.bin`（AMD），程序按 CPU 厂商自动选用，**用户无需再手动下载模块**
 3. 未安装 PawnIO / NVIDIA 显卡无 NVML 时，对应温度列显示「—」，其余指标正常
-4. CPU 温度依赖 PawnIO 驱动；默认仅管理员可打开设备句柄（与 LiteMonitor / LHM 相同）。PawnIO **2.2.0** 安装程序可选允许普通用户访问；否则需以管理员运行本程序，或接受 CPU 温度显示「—」
+4. CPU 温度依赖 PawnIO 驱动；默认仅管理员可打开设备句柄（与 LiteMonitor / LHM 相同）。普通用户若读不到温度，可右键「以管理员身份运行」，或接受 CPU 温度显示「—」
 
 PawnIO 模块来自 [PawnIO.Modules](https://github.com/namazso/PawnIO.Modules)（LGPL-2.1），见 `third_party/pawnio-modules/COPYING`。
 

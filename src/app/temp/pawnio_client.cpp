@@ -79,7 +79,7 @@ bool PawnIoClient::Open(std::wstring& err) {
     long hr = fn_open_(&handle_);
     if (hr < 0 || !handle_) {
         if (static_cast<unsigned long>(hr) == 0x80070005u) {
-            err = L"PawnIO installed but access denied — run as Administrator, or allow non-admin access in PawnIO 2.2.0 setup";
+            err = L"PawnIO installed but access denied — run Sentry-Lite as Administrator for CPU temperature";
         } else {
             err = L"pawnio_open failed (PawnIO driver required)";
         }
